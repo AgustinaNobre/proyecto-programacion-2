@@ -1,3 +1,5 @@
+#models describe como guardamos los datos en PostgreSQL
+
 from sqlalchemy import Column, Integer, String
 from database import Base
 
