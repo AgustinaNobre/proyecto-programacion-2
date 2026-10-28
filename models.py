@@ -1,7 +1,14 @@
-#models describe como guardamos los datos en PostgreSQL
+# Define cómo se guardan los datos en PostgreSQL
+import enum
 
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Enum
 from database import Base
+
+
+class TipoUsuario(str, enum.Enum):
+    CLIENTE = "CLIENTE"
+    PROPIETARIO = "PROPIETARIO"
+    SUPERADMIN = "SUPERADMIN"
 
 
 class Usuario(Base):
@@ -12,3 +19,9 @@ class Usuario(Base):
     email = Column(String(150), unique=True, nullable=False)
     password = Column(String(255), nullable=False)
     puntos = Column(Integer, default=0)
+
+    tipo_usuario = Column(
+        Enum(TipoUsuario),
+        nullable=False,
+        default=TipoUsuario.CLIENTE
+    )
