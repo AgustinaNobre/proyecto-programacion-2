@@ -1,8 +1,7 @@
-from fastapi import Depends, FastAPI, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy.orm import Session
-from auth import generar_hash, verificar_password, crear_token, verificar_token
-from fastapi.security import OAuth2PasswordBearer
+from auth import get_password_hash, verify_password, create_access_token, get_usuario_actual, get_propietario_actual
+from fastapi.security import OAuth2PasswordRequestForm
 
 import models
 import schemas
@@ -12,38 +11,6 @@ from database import engine, get_db
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
-
-
-def obtener_usuario_actual(                         
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
-):
-    # Verificamos el token y obtenemos el ID del usuario
-    usuario_id = verificar_token(token)
-
-    if usuario_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido o vencido",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-
-    # Buscamos al usuario en PostgreSQL
-    usuario = db.query(models.Usuario).filter(
-        models.Usuario.id == int(usuario_id)
-    ).first()
-
-    if usuario is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuario no encontrado",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-
-    return usuario
-
 
 @app.get("/")
 def inicio():
@@ -66,7 +33,7 @@ def crear_usuario(usuario: schemas.UsuarioCrear, db: Session = Depends(get_db)):
     nuevo_usuario = models.Usuario(
     nombre=usuario.nombre,
     email=usuario.email,
-    password=generar_hash(usuario.password)
+    password=get_password_hash(usuario.password)
 )
 
     db.add(nuevo_usuario)
@@ -86,16 +53,16 @@ def iniciar_sesion(
     ).first()
 
     # Verificamos que exista y que la contraseña sea correcta
-    if not usuario or not verificar_password(
-        form_data.password, usuario.password
-    ):
+    if not usuario or not verify_password(
+    form_data.password, usuario.password
+):
         raise HTTPException(
             status_code=401,
             detail="Email o contraseña incorrectos"
         )
 
     # Generamos el token JWT
-    token = crear_token(usuario.id)
+    token = create_access_token({"sub": str(usuario.id)})
 
     return {
         "access_token": token,
@@ -104,7 +71,181 @@ def iniciar_sesion(
 
 @app.get("/usuarios/me", response_model=schemas.UsuarioRespuesta)
 def ver_mi_perfil(
-    usuario_actual: models.Usuario = Depends(obtener_usuario_actual)
+    usuario_actual: models.Usuario = Depends(get_usuario_actual)
 ):
     # Devuelve los datos del usuario que inició sesión
     return usuario_actual
+
+''' @app.get("/prueba-propietario")
+def prueba_propietario(
+    propietario: models.Usuario = Depends(get_propietario_actual)
+):
+    return {"mensaje": "Acceso permitido para propietarios"} '''
+
+@app.post(
+    "/actividades",
+    response_model=schemas.ActividadRespuesta,
+    status_code=201
+)
+def crear_actividad(
+    actividad: schemas.ActividadCrear,
+    db: Session = Depends(get_db),
+    usuario_actual: models.Usuario = Depends(get_usuario_actual)
+):
+    if usuario_actual.tipo_usuario not in (
+        models.TipoUsuario.PROPIETARIO,
+        models.TipoUsuario.SUPERADMIN
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="No tenés permisos para crear actividades"
+        )
+
+    actividad_existente = db.query(models.Actividad).filter(
+        models.Actividad.nombre == actividad.nombre
+    ).first()
+
+    if actividad_existente:
+        raise HTTPException(
+            status_code=400,
+            detail="La actividad ya existe"
+        )
+    
+    
+    nueva_actividad = models.Actividad(
+        nombre=actividad.nombre,
+        descripcion=actividad.descripcion
+    )
+
+    db.add(nueva_actividad)
+    db.commit()
+    db.refresh(nueva_actividad)
+
+    return {
+        "id": nueva_actividad.id,
+        "nombre": nueva_actividad.nombre,
+        "descripcion": nueva_actividad.descripcion
+    }
+
+@app.get(
+    "/actividades",
+    response_model=list[schemas.ActividadRespuesta]
+)
+def listar_actividades(db: Session = Depends(get_db)):
+    actividades = db.query(models.Actividad).all()
+
+    return actividades
+
+
+@app.post(
+    "/ubicaciones",
+    response_model=schemas.UbicacionRespuesta,
+    status_code=201
+)
+def crear_ubicacion(
+    ubicacion: schemas.UbicacionCrear,
+    db: Session = Depends(get_db),
+    usuario_actual: models.Usuario = Depends(get_usuario_actual)
+):
+    # Solo propietarios y administradores pueden crear ubicaciones
+    if usuario_actual.tipo_usuario not in (
+        models.TipoUsuario.PROPIETARIO,
+        models.TipoUsuario.SUPERADMIN
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="No tenés permisos para crear ubicaciones"
+        )
+
+    nueva_ubicacion = models.Ubicacion(
+        direccion=ubicacion.direccion,
+        latitud=ubicacion.latitud,
+        longitud=ubicacion.longitud
+    )
+
+    db.add(nueva_ubicacion)
+    db.commit()
+    db.refresh(nueva_ubicacion)
+
+    return nueva_ubicacion
+
+
+@app.post(
+    "/espacios-deportivos",
+    response_model=schemas.EspacioDeportivoRespuesta,
+    status_code=201
+)
+def crear_espacio_deportivo(
+    espacio: schemas.EspacioDeportivoCrear,
+    db: Session = Depends(get_db),
+    usuario_actual: models.Usuario = Depends(get_usuario_actual)
+):
+    # Verificamos que sea propietario o administrador
+    if usuario_actual.tipo_usuario not in (
+        models.TipoUsuario.PROPIETARIO,
+        models.TipoUsuario.SUPERADMIN
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="No tenés permisos para crear espacios deportivos"
+        )
+
+    # Comprobamos que la actividad exista
+    actividad = db.get(models.Actividad, espacio.actividad_id)
+
+    if actividad is None:
+        raise HTTPException(
+            status_code=404,
+            detail="La actividad no existe"
+        )
+
+    # Comprobamos que la ubicación exista
+    ubicacion = db.get(models.Ubicacion, espacio.ubicacion_id)
+
+    if ubicacion is None:
+        raise HTTPException(
+            status_code=404,
+            detail="La ubicación no existe"
+        )
+
+    # Validamos el tipo de espacio
+    try:
+        tipo_espacio = models.TipoEspacio(espacio.tipo)
+    except ValueError:
+        raise HTTPException(
+            status_code=422,
+            detail="El tipo debe ser CANCHA o SALON"
+        )
+
+    # Creamos el espacio deportivo
+    nuevo_espacio = models.EspacioDeportivo(
+        nombre=espacio.nombre,
+        tipo=tipo_espacio,
+        activa=True,
+        propietario_id=usuario_actual.id,
+        actividad_id=espacio.actividad_id,
+        ubicacion_id=espacio.ubicacion_id
+    )
+
+    db.add(nuevo_espacio)
+    db.commit()
+    db.refresh(nuevo_espacio)
+
+    return nuevo_espacio
+
+
+@app.get(
+    "/espacios-deportivos",
+    response_model=list[schemas.EspacioDeportivoRespuesta]
+)
+def listar_espacios_deportivos(
+    db: Session = Depends(get_db)
+):
+    espacios = db.query(models.EspacioDeportivo).filter(
+        models.EspacioDeportivo.activa == True
+    ).all()
+
+    return espacios
+
+
+

@@ -1,3 +1,9 @@
+from fastapi import Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.orm import Session
+
+import models
+from database import get_db
 import jwt
 from datetime import datetime, timedelta, timezone
 import os
@@ -6,46 +12,73 @@ from pwdlib import PasswordHash
 
 load_dotenv()
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 # Configuramos el sistema para proteger las contraseñas
 password_hash = PasswordHash.recommended()
 
 
-def generar_hash(password: str) -> str:
-    # Convierte la contraseña en un hash seguro
+def get_password_hash(password: str):
+    # Genera un hash seguro de la contraseña
     return password_hash.hash(password)
 
 
-def verificar_password(password: str, hash_guardado: str) -> bool:
-    # Comprueba si la contraseña coincide con el hash almacenado
-    return password_hash.verify(password, hash_guardado)
+def verify_password(plain_password: str, hashed_password: str):
+    # Comprueba si la contraseña coincide con el hash guardado
+    return password_hash.verify(plain_password, hashed_password)
 
-def crear_token(usuario_id: int) -> str:
-    # Establecemos que el token dure 30 minutos
-    vencimiento = datetime.now(timezone.utc) + timedelta(minutes=30)
+def create_access_token(data: dict):
+    to_encode = data.copy()
 
-    # Información que guardamos dentro del token
-    datos = {
-        "sub": str(usuario_id),
-        "exp": vencimiento
-    }
+    expire = datetime.now(timezone.utc) + timedelta(
+        minutes=ACCESS_TOKEN_EXPIRE_MINUTES
+    )
 
-    # Generamos el token firmado con nuestra clave secreta
-    return jwt.encode(datos, SECRET_KEY, algorithm=ALGORITHM)
+    to_encode.update({"exp": expire})
 
-def verificar_token(token: str):
+    encoded_jwt = jwt.encode(
+        to_encode, SECRET_KEY, algorithm=ALGORITHM
+    )
+
+    return encoded_jwt
+
+
+def get_usuario_actual(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+) -> models.Usuario:
+
+    error = HTTPException(
+        status_code=401,
+        detail="Token inválido o vencido",
+        headers={"WWW-Authenticate": "Bearer"}
+    )
+
     try:
-        # Decodificamos el token y comprobamos su firma y vencimiento
         datos = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        usuario_id = int(datos["sub"])
+    except (jwt.PyJWTError, KeyError, ValueError, TypeError):
+        raise error
 
-        # Obtenemos el ID del usuario
-        usuario_id = datos.get("sub")
+    usuario = db.get(models.Usuario, usuario_id)
 
-        return usuario_id
+    if usuario is None:
+        raise error
 
-    except jwt.InvalidTokenError:
-        # Si el token es inválido o venció
-        return None
+    return usuario
 
+def get_propietario_actual(
+    usuario: models.Usuario = Depends(get_usuario_actual),
+) -> models.Usuario:
+
+    if not usuario.es_propietario():
+        raise HTTPException(
+            status_code=403,
+            detail="Solo para propietarios"
+        )
+
+    return usuario
