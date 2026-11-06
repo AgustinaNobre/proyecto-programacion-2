@@ -7,6 +7,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, Enum, Float, CheckConstraint, Boolean, ForeignKey, DateTime, Numeric
 from database import Base
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 
 PUNTOS_POR_RESERVA = 10  # puntos que gana el cliente al finalizar una reserva
@@ -14,6 +15,11 @@ HORAS_LIMITE_REEMBOLSO = 48  # se reembolsa solo si se cancela con esta anticipa
 PORCENTAJE_SENA = Decimal("0.20")  # la app cobra el 20%; el resto se paga en el lugar
 MINUTOS_PARA_PAGAR = 5  # si no se paga la seña en este tiempo, la reserva vence
 PORCENTAJE_COMISION = Decimal("0.05")  # la app se queda con el 5% del total de la reserva
+PUNTOS_PARA_DESCUENTO = 100  # puntos que se canjean por un descuento
+PORCENTAJE_DESCUENTO_PUNTOS = Decimal("0.10")  # descuento al canjear puntos
+HORAS_ULTIMA_HORA = 2  # si el turno empieza dentro de estas horas, es "de última hora"
+PORCENTAJE_DESCUENTO_ULTIMA_HORA = Decimal("0.15")  # descuento automático de última hora
+ZONA_HORARIA = ZoneInfo("America/Argentina/Buenos_Aires")  # los turnos se guardan en UTC
 
 
 class TipoUsuario(str, enum.Enum):
@@ -52,7 +58,7 @@ class Usuario(Base):
     email = Column(String(150), unique=True, nullable=False)
     password = Column(String(255), nullable=False)
     puntos = Column(Integer, default=0)
-    alias_cobro = Column(String(100), nullable=True)  # CBU o alias donde el propietario recibe las liquidaciones
+    cuenta_cobro = Column(String(100), nullable=True)  # CBU o alias donde el propietario recibe las liquidaciones
 
     tipo_usuario = Column(
         Enum(TipoUsuario),
@@ -67,6 +73,11 @@ class Usuario(Base):
 
     reservas = relationship(
         "Reserva",
+        back_populates="usuario"
+    )
+
+    notificaciones = relationship(
+        "Notificacion",
         back_populates="usuario"
     )
 
@@ -252,7 +263,7 @@ class Turno(Base):
             for reserva in self.reservas
         )
 
-    def reservar(self, usuario_id: int) -> "Reserva":
+    def reservar(self, usuario_id: int, precio=None, puntos_usados: int = 0) -> "Reserva":
         if not self.esta_disponible():
             raise ValueError("El turno no está disponible")
 
@@ -262,10 +273,168 @@ class Turno(Base):
         reserva = Reserva(
             usuario_id=usuario_id,
             estado=EstadoReserva.EN_PROCESO,
-            precio=self.precio,  # se congela el precio al momento de reservar
+            # se congela el precio al momento de reservar; si no viene uno
+            # calculado (con descuentos o recargos), se usa el del turno
+            precio=precio if precio is not None else self.precio,
+            puntos_usados=puntos_usados,
         )
         self.reservas.append(reserva)
         return reserva
+
+
+# =====================================================================
+# PATRÓN DECORATOR — precio de un turno
+#
+# El precio se arma "envolviendo" el precio base con decoradores.
+# Cada decorador agrega una regla (descuento, recargo) sin tocar las demás,
+# y se pueden apilar en cualquier orden:
+#
+#   precio = DescuentoPorPuntos(DescuentoUltimaHora(PrecioBase(turno)))
+#   precio.calcular()  -> total final
+#   precio.detalle()   -> ["Precio del turno: $15000", "Descuento ...", ...]
+# =====================================================================
+
+class Precio:
+    def calcular(self) -> Decimal:
+        raise NotImplementedError
+
+    def detalle(self) -> list[str]:
+        raise NotImplementedError
+
+
+class PrecioBase(Precio):
+    def __init__(self, turno: "Turno"):
+        self.turno = turno
+
+    def calcular(self) -> Decimal:
+        return Decimal(self.turno.precio)
+
+    def detalle(self) -> list[str]:
+        return [f"Precio del turno: ${self.calcular():.2f}"]
+
+
+class DecoradorPrecio(Precio):
+    def __init__(self, precio: Precio):
+        self.precio = precio
+
+    def calcular(self) -> Decimal:
+        return self.precio.calcular()
+
+    def detalle(self) -> list[str]:
+        return self.precio.detalle()
+
+
+class DescuentoPorPuntos(DecoradorPrecio):
+    # Canjeando puntos, el cliente tiene un descuento (RQ19)
+    def calcular(self) -> Decimal:
+        base = self.precio.calcular()
+        return (base * (1 - PORCENTAJE_DESCUENTO_PUNTOS)).quantize(Decimal("0.01"))
+
+    def detalle(self) -> list[str]:
+        ahorro = self.precio.calcular() - self.calcular()
+        return self.precio.detalle() + [
+            f"Descuento por {PUNTOS_PARA_DESCUENTO} puntos ({PORCENTAJE_DESCUENTO_PUNTOS:.0%}): -${ahorro:.2f}"
+        ]
+
+
+class DescuentoUltimaHora(DecoradorPrecio):
+    # Descuento automático si el turno empieza muy pronto:
+    # mejor llenar el turno con descuento que dejarlo vacío
+    def calcular(self) -> Decimal:
+        base = self.precio.calcular()
+        return (base * (1 - PORCENTAJE_DESCUENTO_ULTIMA_HORA)).quantize(Decimal("0.01"))
+
+    def detalle(self) -> list[str]:
+        ahorro = self.precio.calcular() - self.calcular()
+        return self.precio.detalle() + [
+            f"Descuento de última hora ({PORCENTAJE_DESCUENTO_ULTIMA_HORA:.0%}): -${ahorro:.2f}"
+        ]
+
+
+def armar_precio(turno: "Turno", usar_puntos: bool = False) -> Precio:
+    # Arma el precio aplicando solo los decoradores que corresponden
+    precio = PrecioBase(turno)
+
+    ahora = datetime.now(timezone.utc).replace(tzinfo=None)
+    if turno.fecha_hora_inicio - ahora <= timedelta(hours=HORAS_ULTIMA_HORA):
+        precio = DescuentoUltimaHora(precio)  # se aplica solo, sin que el cliente haga nada
+
+    if usar_puntos:
+        precio = DescuentoPorPuntos(precio)
+
+    return precio
+
+
+# =====================================================================
+# PATRÓN OBSERVER — cambios de estado de una reserva
+#
+# La reserva (sujeto) avisa cada vez que cambia de estado, sin saber
+# quién la escucha. Cada observador decide qué hacer con el aviso.
+# Para sumar un comportamiento nuevo (ej: mandar un mail) se agrega
+# un observador, sin tocar la clase Reserva.
+#
+# Eventos: "confirmada", "cancelada", "vencida", "finalizada"
+# =====================================================================
+
+class ObservadorReserva:
+    # Interfaz que implementan todos los observadores
+    def actualizar(self, reserva: "Reserva", evento: str):
+        raise NotImplementedError
+
+
+class SumarPuntosAlFinalizar(ObservadorReserva):
+    # Cuando se juega el turno, el cliente suma puntos
+    def actualizar(self, reserva, evento):
+        if evento == "finalizada":
+            reserva.usuario.sumar_puntos(PUNTOS_POR_RESERVA)
+
+
+class DevolverPuntosCanjeados(ObservadorReserva):
+    # Si la reserva vence o se cancela con reembolso, se devuelven los puntos canjeados
+    def actualizar(self, reserva, evento):
+        if reserva.puntos_usados <= 0:
+            return
+        if evento == "vencida" or (evento == "cancelada" and reserva.fue_reembolsada()):
+            reserva.usuario.sumar_puntos(reserva.puntos_usados)
+            reserva.puntos_usados = 0
+
+
+class NotificarCambios(ObservadorReserva):
+    # Deja una notificación al cliente y al propietario de la cancha
+    def actualizar(self, reserva, evento):
+        cancha = reserva.turno.espacio_deportivo
+        cuando = (
+            reserva.turno.fecha_hora_inicio
+            .replace(tzinfo=timezone.utc)
+            .astimezone(ZONA_HORARIA)
+            .strftime("%d/%m a las %H:%M")
+        )
+        cliente = reserva.usuario
+        propietario = cancha.propietario
+
+        mensajes = {
+            "confirmada": [
+                (cliente, f"Tu reserva en {cancha.nombre} el {cuando} está confirmada. "
+                          f"Pagás ${reserva.precio - reserva.monto_sena():.2f} en la cancha."),
+                (propietario, f"{cliente.nombre} reservó {cancha.nombre} para el {cuando}."),
+            ],
+            "cancelada": [
+                (cliente, f"Cancelaste tu reserva en {cancha.nombre} del {cuando}. "
+                          + ("Te devolvimos la seña." if reserva.fue_reembolsada()
+                             else "La seña no se devuelve.")),
+                (propietario, f"{cliente.nombre} canceló su reserva en {cancha.nombre} del {cuando}."),
+            ],
+            "vencida": [
+                (cliente, f"Tu reserva en {cancha.nombre} del {cuando} venció porque no se pagó la seña a tiempo."),
+            ],
+            "finalizada": [
+                (cliente, f"¡Sumaste {PUNTOS_POR_RESERVA} puntos por jugar en {cancha.nombre}!"),
+            ],
+        }
+
+        for destinatario, texto in mensajes.get(evento, []):
+            destinatario.notificaciones.append(Notificacion(mensaje=texto))
+
 
 class Reserva(Base):
     __tablename__ = "reservas"
@@ -284,6 +453,7 @@ class Reserva(Base):
     )
 
     precio = Column(Numeric(10, 2), nullable=False)
+    puntos_usados = Column(Integer, nullable=False, default=0)  # puntos canjeados por descuento
     usuario_id = Column(
         Integer,
         ForeignKey("usuarios.id"),
@@ -306,11 +476,39 @@ class Reserva(Base):
         "Pago",
         back_populates="reserva"
     )
+
+    # Observadores que se enteran de cada cambio de estado (patrón Observer).
+    # Es una lista de la clase: la comparten todas las reservas.
+    observadores = [
+        SumarPuntosAlFinalizar(),
+        DevolverPuntosCanjeados(),
+        NotificarCambios(),
+    ]
+
+    def notificar(self, evento: str):
+        for observador in self.observadores:
+            observador.actualizar(self, evento)
+
+    def monto_sena(self) -> Decimal:
+        return (self.precio * PORCENTAJE_SENA).quantize(Decimal("0.01"))
+
+    def fue_reembolsada(self) -> bool:
+        return any(pago.estado_pago == EstadoPago.REEMBOLSADO for pago in self.pagos)
+
     def confirmar(self):
         if self.estado != EstadoReserva.EN_PROCESO:
             raise ValueError("Solo se pueden confirmar reservas en proceso")
 
         self.estado = EstadoReserva.CONFIRMADA
+        self.notificar("confirmada")
+
+    def vencer(self):
+        # No se pagó la seña a tiempo: se libera el turno
+        if self.estado != EstadoReserva.EN_PROCESO:
+            return
+
+        self.estado = EstadoReserva.CANCELADA
+        self.notificar("vencida")
 
     def cancelar(self):
         if self.estado not in (
@@ -331,12 +529,14 @@ class Reserva(Base):
                 except ValueError:
                     pass
 
+        self.notificar("cancelada")
+
     def finalizar(self):
         if self.estado != EstadoReserva.CONFIRMADA:
             raise ValueError("Solo se pueden finalizar reservas confirmadas")
 
         self.estado = EstadoReserva.FINALIZADA
-        self.usuario.sumar_puntos(PUNTOS_POR_RESERVA)
+        self.notificar("finalizada")  # SumarPuntosAlFinalizar se encarga de los puntos
 
     def registrar_pago(self, medio_pago, referencia_externa=None) -> "Pago":
         if self.estado == EstadoReserva.CONFIRMADA:
@@ -350,7 +550,7 @@ class Reserva(Base):
 
         # Por la app solo se paga la seña; el resto se abona en el lugar.
         # De la seña, la app se queda con la comisión y el resto es del propietario.
-        sena = (self.precio * PORCENTAJE_SENA).quantize(Decimal("0.01"))
+        sena = self.monto_sena()
         comision = (self.precio * PORCENTAJE_COMISION).quantize(Decimal("0.01"))
 
         pago = Pago(
@@ -470,4 +670,32 @@ class Liquidacion(Base):
             "monto > 0",
             name="monto_liquidacion_valido"
         ),
+    )
+
+
+class Notificacion(Base):
+    # Mensajes que generan los observadores de las reservas
+    __tablename__ = "notificaciones"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    usuario_id = Column(
+        Integer,
+        ForeignKey("usuarios.id"),
+        nullable=False
+    )
+
+    mensaje = Column(String(300), nullable=False)
+
+    leida = Column(Boolean, nullable=False, default=False)
+
+    fecha = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+    usuario = relationship(
+        "Usuario",
+        back_populates="notificaciones"
     )
