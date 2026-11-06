@@ -1,11 +1,19 @@
 # Define cómo se guardan los datos en PostgreSQL
 import enum
 import math
+from decimal import Decimal
 
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, Enum, Float, CheckConstraint, Boolean, ForeignKey, DateTime, Numeric
 from database import Base
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+
+
+PUNTOS_POR_RESERVA = 10  # puntos que gana el cliente al finalizar una reserva
+HORAS_LIMITE_REEMBOLSO = 48  # se reembolsa solo si se cancela con esta anticipación
+PORCENTAJE_SENA = Decimal("0.20")  # la app cobra el 20%; el resto se paga en el lugar
+MINUTOS_PARA_PAGAR = 5  # si no se paga la seña en este tiempo, la reserva vence
+PORCENTAJE_COMISION = Decimal("0.05")  # la app se queda con el 5% del total de la reserva
 
 
 class TipoUsuario(str, enum.Enum):
@@ -44,6 +52,7 @@ class Usuario(Base):
     email = Column(String(150), unique=True, nullable=False)
     password = Column(String(255), nullable=False)
     puntos = Column(Integer, default=0)
+    cuenta_cobro = Column(String(100), nullable=True)  # CBU o alias donde el propietario recibe las liquidaciones
 
     tipo_usuario = Column(
         Enum(TipoUsuario),
@@ -243,12 +252,20 @@ class Turno(Base):
             for reserva in self.reservas
         )
 
-    def reservar(self, usuario_id: int):
+    def reservar(self, usuario_id: int) -> "Reserva":
         if not self.esta_disponible():
             raise ValueError("El turno no está disponible")
 
         if self.usuario_ya_reservo(usuario_id):
             raise ValueError("El usuario ya reservó este turno")
+
+        reserva = Reserva(
+            usuario_id=usuario_id,
+            estado=EstadoReserva.EN_PROCESO,
+            precio=self.precio,  # se congela el precio al momento de reservar
+        )
+        self.reservas.append(reserva)
+        return reserva
 
 class Reserva(Base):
     __tablename__ = "reservas"
@@ -304,11 +321,47 @@ class Reserva(Base):
 
         self.estado = EstadoReserva.CANCELADA
 
+        # Si ya había pagado, intentamos devolverle la plata.
+        # reembolsar() decide si corresponde (48 hs antes del turno);
+        # si no corresponde, la reserva se cancela igual y el pago queda aprobado.
+        for pago in self.pagos:
+            if pago.esta_aprobado():
+                try:
+                    pago.reembolsar()
+                except ValueError:
+                    pass
+
     def finalizar(self):
         if self.estado != EstadoReserva.CONFIRMADA:
             raise ValueError("Solo se pueden finalizar reservas confirmadas")
 
         self.estado = EstadoReserva.FINALIZADA
+        self.usuario.sumar_puntos(PUNTOS_POR_RESERVA)
+
+    def registrar_pago(self, medio_pago, referencia_externa=None) -> "Pago":
+        if self.estado != EstadoReserva.EN_PROCESO:
+            raise ValueError(
+                "Solo se pueden pagar reservas en proceso "
+                f"(si pasaron más de {MINUTOS_PARA_PAGAR} minutos sin pagar, la reserva venció)"
+            )
+
+        # Por la app solo se paga la seña; el resto se abona en el lugar.
+        # De la seña, la app se queda con la comisión y el resto es del propietario.
+        sena = (self.precio * PORCENTAJE_SENA).quantize(Decimal("0.01"))
+        comision = (self.precio * PORCENTAJE_COMISION).quantize(Decimal("0.01"))
+
+        pago = Pago(
+            monto=sena,
+            comision=comision,
+            medio_pago=medio_pago,
+            estado_pago=EstadoPago.PENDIENTE,
+            referencia_externa=referencia_externa,
+        )
+        self.pagos.append(pago)
+
+        # Pago simulado: se aprueba en el momento, como si lo confirmara la pasarela
+        pago.aprobar()
+        return pago
 
 class Pago(Base):
     __tablename__ = "pagos"
@@ -316,6 +369,7 @@ class Pago(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     monto = Column(Numeric(10, 2), nullable=False)
+    comision = Column(Numeric(10, 2), nullable=False, default=0)  # parte del monto que se queda la app
 
     medio_pago = Column(
         Enum(MedioPago),
@@ -355,3 +409,28 @@ class Pago(Base):
         String(150),
         nullable=True
     )
+
+    def aprobar(self):
+        if self.estado_pago != EstadoPago.PENDIENTE:
+            raise ValueError("Solo se pueden aprobar pagos pendientes")
+
+        self.estado_pago = EstadoPago.APROBADO
+        self.fecha_pago = datetime.now(timezone.utc)
+        self.reserva.confirmar()  # al aprobar el pago, la reserva queda confirmada
+
+    def reembolsar(self):
+        if self.estado_pago != EstadoPago.APROBADO:
+            raise ValueError("Solo se pueden reembolsar pagos aprobados")
+
+        ahora = datetime.now(timezone.utc).replace(tzinfo=None)
+        inicio_turno = self.reserva.turno.fecha_hora_inicio
+
+        if inicio_turno - ahora < timedelta(hours=HORAS_LIMITE_REEMBOLSO):
+            raise ValueError(
+                f"Solo se puede reembolsar hasta {HORAS_LIMITE_REEMBOLSO} horas antes del turno"
+            )
+
+        self.estado_pago = EstadoPago.REEMBOLSADO
+
+    def esta_aprobado(self) -> bool:
+        return self.estado_pago == EstadoPago.APROBADO

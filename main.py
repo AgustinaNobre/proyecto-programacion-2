@@ -1,3 +1,6 @@
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+
 from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy.orm import Session
 from auth import get_password_hash, verify_password, create_access_token, get_usuario_actual, get_propietario_actual
@@ -248,4 +251,292 @@ def listar_espacios_deportivos(
     return espacios
 
 
+def _es_admin(usuario: models.Usuario) -> bool:
+    return usuario.tipo_usuario == models.TipoUsuario.SUPERADMIN
 
+
+def _get_admin_actual(usuario: models.Usuario = Depends(get_usuario_actual)) -> models.Usuario:
+    if not _es_admin(usuario):
+        raise HTTPException(status_code=403, detail="Solo para administradores")
+    return usuario
+
+
+def _es_duenio_del_espacio(usuario: models.Usuario, reserva: models.Reserva) -> bool:
+    return reserva.turno.espacio_deportivo.propietario_id == usuario.id
+
+
+def _buscar_reserva(db: Session, reserva_id: int) -> models.Reserva:
+    reserva = db.get(models.Reserva, reserva_id)
+    if reserva is None:
+        raise HTTPException(status_code=404, detail="La reserva no existe")
+    return reserva
+
+
+def _error_de_regla(e: ValueError):
+    raise HTTPException(status_code=400, detail=str(e))
+
+
+def _vencer_reservas_sin_pago(db: Session):
+    limite = datetime.now(timezone.utc) - timedelta(minutes=models.MINUTOS_PARA_PAGAR)
+
+    vencidas = db.query(models.Reserva).filter(
+        models.Reserva.estado == models.EstadoReserva.EN_PROCESO,
+        models.Reserva.fecha_creacion < limite,
+    ).all()
+
+    for reserva in vencidas:
+        reserva.estado = models.EstadoReserva.CANCELADA
+
+    db.commit()
+
+
+def _resumen_cobros(db: Session, propietario: models.Usuario) -> schemas.ResumenCobros:
+    ahora = datetime.now(timezone.utc).replace(tzinfo=None)
+    limite_reembolso = timedelta(hours=models.HORAS_LIMITE_REEMBOLSO)
+
+    pagos = (
+        db.query(models.Pago)
+        .join(models.Reserva)
+        .join(models.Turno)
+        .join(models.EspacioDeportivo)
+        .filter(
+            models.EspacioDeportivo.propietario_id == propietario.id,
+            models.Pago.estado_pago == models.EstadoPago.APROBADO,
+        )
+        .all()
+    )
+
+    a_confirmar = Decimal("0")
+    confirmado = Decimal("0")
+    for pago in pagos:
+        parte_propietario = pago.monto - pago.comision
+        if pago.reserva.turno.fecha_hora_inicio - ahora >= limite_reembolso:
+            a_confirmar += parte_propietario
+        else:
+            confirmado += parte_propietario
+
+    liquidado = sum(
+        (l.monto for l in db.query(models.Liquidacion).filter(
+            models.Liquidacion.propietario_id == propietario.id
+        )),
+        Decimal("0"),
+    )
+
+    return schemas.ResumenCobros(
+        alias_cobro=propietario.alias_cobro,
+        a_confirmar=a_confirmar,
+        confirmado=confirmado,
+        liquidado=liquidado,
+        saldo_a_cobrar=confirmado - liquidado,
+    )
+
+
+
+@app.post("/turnos/{turno_id}/reservas", response_model=schemas.ReservaRespuesta, status_code=201)
+def reservar_turno(
+    turno_id: int,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_usuario_actual),
+):
+    _vencer_reservas_sin_pago(db)
+
+    # with_for_update bloquea el turno mientras reservamos, así dos personas
+    # no pueden quedarse con el último cupo al mismo tiempo (RNF3)
+    turno = db.query(models.Turno).filter(models.Turno.id == turno_id).with_for_update().first()
+    if turno is None:
+        raise HTTPException(status_code=404, detail="El turno no existe")
+
+    try:
+        reserva = turno.reservar(usuario.id)
+    except ValueError as e:
+        _error_de_regla(e)
+
+    db.add(reserva)
+    db.commit()
+    db.refresh(reserva)
+    return reserva
+
+
+@app.get("/reservas", response_model=list[schemas.ReservaRespuesta])
+def mis_reservas(
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_usuario_actual),
+):
+    _vencer_reservas_sin_pago(db)
+    return (
+        db.query(models.Reserva)
+        .filter(models.Reserva.usuario_id == usuario.id)
+        .order_by(models.Reserva.fecha_creacion.desc())
+        .all()
+    )
+
+
+@app.post("/reservas/{reserva_id}/cancelar", response_model=schemas.ReservaRespuesta)
+def cancelar_reserva(
+    reserva_id: int,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_usuario_actual),
+):
+    _vencer_reservas_sin_pago(db)
+    reserva = _buscar_reserva(db, reserva_id)
+    if reserva.usuario_id != usuario.id and not _es_admin(usuario):
+        raise HTTPException(status_code=403, detail="Solo podés cancelar tus propias reservas")
+
+    try:
+        reserva.cancelar()  # si corresponde, reembolsa la seña
+    except ValueError as e:
+        _error_de_regla(e)
+
+    db.commit()
+    db.refresh(reserva)
+    return reserva
+
+
+@app.post("/reservas/{reserva_id}/finalizar", response_model=schemas.ReservaRespuesta)
+def finalizar_reserva(
+    reserva_id: int,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_usuario_actual),
+):
+    # El propietario la finaliza cuando el cliente jugó y le pagó el resto en la cancha
+    reserva = _buscar_reserva(db, reserva_id)
+    if not _es_duenio_del_espacio(usuario, reserva) and not _es_admin(usuario):
+        raise HTTPException(status_code=403, detail="Solo el propietario de la cancha puede finalizar la reserva")
+
+    try:
+        reserva.finalizar()  # también le suma los puntos al cliente
+    except ValueError as e:
+        _error_de_regla(e)
+
+    db.commit()
+    db.refresh(reserva)
+    return reserva
+
+
+@app.post("/reservas/{reserva_id}/pago", response_model=schemas.PagoRespuesta, status_code=201)
+def pagar_sena(
+    reserva_id: int,
+    datos: schemas.PagoCrear,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_usuario_actual),
+):
+    _vencer_reservas_sin_pago(db)
+    reserva = _buscar_reserva(db, reserva_id)
+    if reserva.usuario_id != usuario.id:
+        raise HTTPException(status_code=403, detail="Solo podés pagar tus propias reservas")
+
+    try:
+        pago = reserva.registrar_pago(datos.medio_pago, datos.referencia_externa)   
+    except ValueError as e:
+        _error_de_regla(e)
+
+    db.add(pago)
+    db.commit()
+    db.refresh(pago)
+    return pago
+
+
+@app.get("/reservas/{reserva_id}/pagos", response_model=list[schemas.PagoRespuesta])
+def ver_pagos_de_reserva(
+    reserva_id: int,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_usuario_actual),
+):
+    reserva = _buscar_reserva(db, reserva_id)
+    puede_ver = (
+        reserva.usuario_id == usuario.id
+        or _es_duenio_del_espacio(usuario, reserva)
+        or _es_admin(usuario)
+    )
+    if not puede_ver:
+        raise HTTPException(status_code=403, detail="No tenés acceso a esta reserva")
+    return reserva.pagos
+
+
+# ---------- Cobros del propietario ----------
+
+@app.put("/usuarios/me/alias-cobro", response_model=schemas.ResumenCobros)
+def cargar_alias_cobro(
+    datos: schemas.AliasCobro,
+    db: Session = Depends(get_db),
+    propietario: models.Usuario = Depends(get_propietario_actual),
+):
+    propietario.alias_cobro = datos.alias_cobro.strip()
+    db.commit()
+    return _resumen_cobros(db, propietario)
+
+
+@app.get("/mis-cobros", response_model=schemas.ResumenCobros)
+def mis_cobros(
+    db: Session = Depends(get_db),
+    propietario: models.Usuario = Depends(get_propietario_actual),
+):
+    return _resumen_cobros(db, propietario)
+
+
+@app.get("/mis-liquidaciones", response_model=list[schemas.LiquidacionRespuesta])
+def mis_liquidaciones(
+    db: Session = Depends(get_db),
+    propietario: models.Usuario = Depends(get_propietario_actual),
+):
+    return (
+        db.query(models.Liquidacion)
+        .filter(models.Liquidacion.propietario_id == propietario.id)
+        .order_by(models.Liquidacion.fecha.desc())
+        .all()
+    )
+
+
+# ---------- Liquidaciones (admin) ----------
+
+@app.get("/liquidaciones/pendientes", response_model=list[schemas.PropietarioACobrar])
+def propietarios_a_liquidar(
+    db: Session = Depends(get_db),
+    admin: models.Usuario = Depends(_get_admin_actual),
+):
+    propietarios = db.query(models.Usuario).filter(
+        models.Usuario.tipo_usuario == models.TipoUsuario.PROPIETARIO
+    ).all()
+
+    pendientes = []
+    for p in propietarios:
+        saldo = _resumen_cobros(db, p).saldo_a_cobrar
+        if saldo > 0:
+            pendientes.append(schemas.PropietarioACobrar(
+                propietario_id=p.id, nombre=p.nombre,
+                alias_cobro=p.alias_cobro, saldo_a_cobrar=saldo,
+            ))
+    return pendientes
+
+
+@app.post("/liquidaciones", response_model=schemas.LiquidacionRespuesta, status_code=201)
+def registrar_liquidacion(
+    datos: schemas.LiquidacionCrear,
+    db: Session = Depends(get_db),
+    admin: models.Usuario = Depends(_get_admin_actual),
+):
+    propietario = db.get(models.Usuario, datos.propietario_id)
+    if propietario is None or propietario.tipo_usuario != models.TipoUsuario.PROPIETARIO:
+        raise HTTPException(status_code=404, detail="El propietario no existe")
+
+    if not propietario.alias_cobro:
+        raise HTTPException(status_code=400, detail="El propietario no cargó su CBU/alias de cobro")
+
+    saldo = _resumen_cobros(db, propietario).saldo_a_cobrar
+    monto = datos.monto if datos.monto is not None else saldo  # sin monto: se liquida todo
+
+    if monto <= 0:
+        raise HTTPException(status_code=400, detail="El propietario no tiene saldo para liquidar")
+    if monto > saldo:
+        raise HTTPException(status_code=400, detail=f"El monto supera el saldo a cobrar ({saldo})")
+
+    liquidacion = models.Liquidacion(
+        propietario_id=propietario.id,
+        monto=monto,
+        alias_destino=propietario.alias_cobro,
+        referencia_externa=datos.referencia_externa,
+    )
+    db.add(liquidacion)
+    db.commit()
+    db.refresh(liquidacion)
+    return liquidacion
