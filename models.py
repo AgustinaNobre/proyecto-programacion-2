@@ -52,7 +52,7 @@ class Usuario(Base):
     email = Column(String(150), unique=True, nullable=False)
     password = Column(String(255), nullable=False)
     puntos = Column(Integer, default=0)
-    cuenta_cobro = Column(String(100), nullable=True)  # CBU o alias donde el propietario recibe las liquidaciones
+    alias_cobro = Column(String(100), nullable=True)  # CBU o alias donde el propietario recibe las liquidaciones
 
     tipo_usuario = Column(
         Enum(TipoUsuario),
@@ -339,6 +339,9 @@ class Reserva(Base):
         self.usuario.sumar_puntos(PUNTOS_POR_RESERVA)
 
     def registrar_pago(self, medio_pago, referencia_externa=None) -> "Pago":
+        if self.estado == EstadoReserva.CONFIRMADA:
+            raise ValueError("Esta reserva ya está pagada")
+
         if self.estado != EstadoReserva.EN_PROCESO:
             raise ValueError(
                 "Solo se pueden pagar reservas en proceso "
@@ -434,3 +437,37 @@ class Pago(Base):
 
     def esta_aprobado(self) -> bool:
         return self.estado_pago == EstadoPago.APROBADO
+
+
+class Liquidacion(Base):
+    # Transferencia que la app le hace al propietario con lo que cobró por sus canchas
+    __tablename__ = "liquidaciones"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    propietario_id = Column(
+        Integer,
+        ForeignKey("usuarios.id"),
+        nullable=False
+    )
+
+    monto = Column(Numeric(10, 2), nullable=False)
+
+    alias_destino = Column(String(100), nullable=False)  # a dónde se transfirió
+
+    fecha = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+    referencia_externa = Column(String(150), nullable=True)  # ej: número de transferencia
+
+    propietario = relationship("Usuario")
+
+    __table_args__ = (
+        CheckConstraint(
+            "monto > 0",
+            name="monto_liquidacion_valido"
+        ),
+    )
