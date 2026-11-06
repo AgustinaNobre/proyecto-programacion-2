@@ -275,6 +275,19 @@ class Turno(Base):
         self.reservas.append(reserva)
         return reserva
 
+
+# =====================================================================
+# PATRÓN DECORATOR — precio de un turno
+#
+# El precio se arma "envolviendo" el precio base con decoradores.
+# Cada decorador agrega una regla (descuento, recargo) sin tocar las demás,
+# y se pueden apilar en cualquier orden:
+#
+#   precio = DescuentoPorPuntos(DescuentoUltimaHora(PrecioBase(turno)))
+#   precio.calcular()  -> total final
+#   precio.detalle()   -> ["Precio del turno: $15000", "Descuento ...", ...]
+# =====================================================================
+
 class Precio:
     def calcular(self) -> Decimal:
         raise NotImplementedError
