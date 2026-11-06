@@ -50,12 +50,10 @@ def iniciar_sesion(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
-    # Buscamos al usuario por su email
     usuario = db.query(models.Usuario).filter(
         models.Usuario.email == form_data.username
     ).first()
 
-    # Verificamos que exista y que la contraseña sea correcta
     if not usuario or not verify_password(
     form_data.password, usuario.password
 ):
@@ -64,7 +62,6 @@ def iniciar_sesion(
             detail="Email o contraseña incorrectos"
         )
 
-    # Generamos el token JWT
     token = create_access_token({"sub": str(usuario.id)})
 
     return {
@@ -76,7 +73,6 @@ def iniciar_sesion(
 def ver_mi_perfil(
     usuario_actual: models.Usuario = Depends(get_usuario_actual)
 ):
-    # Devuelve los datos del usuario que inició sesión
     return usuario_actual
 
 ''' @app.get("/prueba-propietario")
@@ -150,7 +146,6 @@ def crear_ubicacion(
     db: Session = Depends(get_db),
     usuario_actual: models.Usuario = Depends(get_usuario_actual)
 ):
-    # Solo propietarios y administradores pueden crear ubicaciones
     if usuario_actual.tipo_usuario not in (
         models.TipoUsuario.PROPIETARIO,
         models.TipoUsuario.SUPERADMIN
@@ -183,7 +178,6 @@ def crear_espacio_deportivo(
     db: Session = Depends(get_db),
     usuario_actual: models.Usuario = Depends(get_usuario_actual)
 ):
-    # Verificamos que sea propietario o administrador
     if usuario_actual.tipo_usuario not in (
         models.TipoUsuario.PROPIETARIO,
         models.TipoUsuario.SUPERADMIN
@@ -193,7 +187,6 @@ def crear_espacio_deportivo(
             detail="No tenés permisos para crear espacios deportivos"
         )
 
-    # Comprobamos que la actividad exista
     actividad = db.get(models.Actividad, espacio.actividad_id)
 
     if actividad is None:
@@ -202,7 +195,6 @@ def crear_espacio_deportivo(
             detail="La actividad no existe"
         )
 
-    # Comprobamos que la ubicación exista
     ubicacion = db.get(models.Ubicacion, espacio.ubicacion_id)
 
     if ubicacion is None:
@@ -211,7 +203,6 @@ def crear_espacio_deportivo(
             detail="La ubicación no existe"
         )
 
-    # Validamos el tipo de espacio
     try:
         tipo_espacio = models.TipoEspacio(espacio.tipo)
     except ValueError:
@@ -220,7 +211,6 @@ def crear_espacio_deportivo(
             detail="El tipo debe ser CANCHA o SALON"
         )
 
-    # Creamos el espacio deportivo
     nuevo_espacio = models.EspacioDeportivo(
         nombre=espacio.nombre,
         tipo=tipo_espacio,
@@ -285,7 +275,7 @@ def _vencer_reservas_sin_pago(db: Session):
     ).all()
 
     for reserva in vencidas:
-        reserva.estado = models.EstadoReserva.CANCELADA
+        reserva.vencer()
 
     db.commit()
 
@@ -323,7 +313,7 @@ def _resumen_cobros(db: Session, propietario: models.Usuario) -> schemas.Resumen
     )
 
     return schemas.ResumenCobros(
-        alias_cobro=propietario.alias_cobro,
+        alias_cobro=propietario.cuenta_cobro,
         a_confirmar=a_confirmar,
         confirmado=confirmado,
         liquidado=liquidado,
@@ -331,23 +321,28 @@ def _resumen_cobros(db: Session, propietario: models.Usuario) -> schemas.Resumen
     )
 
 
-
 @app.post("/turnos/{turno_id}/reservas", response_model=schemas.ReservaRespuesta, status_code=201)
 def reservar_turno(
     turno_id: int,
+    usar_puntos: bool = False,
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_usuario_actual),
 ):
     _vencer_reservas_sin_pago(db)
 
-    # with_for_update bloquea el turno mientras reservamos, así dos personas
-    # no pueden quedarse con el último cupo al mismo tiempo (RNF3)
     turno = db.query(models.Turno).filter(models.Turno.id == turno_id).with_for_update().first()
     if turno is None:
         raise HTTPException(status_code=404, detail="El turno no existe")
 
+    precio = models.armar_precio(turno, usar_puntos)
+
     try:
-        reserva = turno.reservar(usuario.id)
+        puntos_usados = 0
+        if usar_puntos:
+            usuario.canjear_puntos(models.PUNTOS_PARA_DESCUENTO)
+            puntos_usados = models.PUNTOS_PARA_DESCUENTO
+
+        reserva = turno.reservar(usuario.id, precio=precio.calcular(), puntos_usados=puntos_usados)
     except ValueError as e:
         _error_de_regla(e)
 
@@ -383,7 +378,7 @@ def cancelar_reserva(
         raise HTTPException(status_code=403, detail="Solo podés cancelar tus propias reservas")
 
     try:
-        reserva.cancelar()  # si corresponde, reembolsa la seña
+        reserva.cancelar()
     except ValueError as e:
         _error_de_regla(e)
 
@@ -398,13 +393,12 @@ def finalizar_reserva(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_usuario_actual),
 ):
-    # El propietario la finaliza cuando el cliente jugó y le pagó el resto en la cancha
     reserva = _buscar_reserva(db, reserva_id)
     if not _es_duenio_del_espacio(usuario, reserva) and not _es_admin(usuario):
         raise HTTPException(status_code=403, detail="Solo el propietario de la cancha puede finalizar la reserva")
 
     try:
-        reserva.finalizar()  # también le suma los puntos al cliente
+        reserva.finalizar()
     except ValueError as e:
         _error_de_regla(e)
 
@@ -453,15 +447,13 @@ def ver_pagos_de_reserva(
     return reserva.pagos
 
 
-# ---------- Cobros del propietario ----------
-
 @app.put("/usuarios/me/alias-cobro", response_model=schemas.ResumenCobros)
 def cargar_alias_cobro(
     datos: schemas.AliasCobro,
     db: Session = Depends(get_db),
     propietario: models.Usuario = Depends(get_propietario_actual),
 ):
-    propietario.alias_cobro = datos.alias_cobro.strip()
+    propietario.cuenta_cobro = datos.alias_cobro.strip()
     db.commit()
     return _resumen_cobros(db, propietario)
 
@@ -487,8 +479,6 @@ def mis_liquidaciones(
     )
 
 
-# ---------- Liquidaciones (admin) ----------
-
 @app.get("/liquidaciones/pendientes", response_model=list[schemas.PropietarioACobrar])
 def propietarios_a_liquidar(
     db: Session = Depends(get_db),
@@ -504,7 +494,7 @@ def propietarios_a_liquidar(
         if saldo > 0:
             pendientes.append(schemas.PropietarioACobrar(
                 propietario_id=p.id, nombre=p.nombre,
-                alias_cobro=p.alias_cobro, saldo_a_cobrar=saldo,
+                alias_cobro=p.cuenta_cobro, saldo_a_cobrar=saldo,
             ))
     return pendientes
 
@@ -519,11 +509,11 @@ def registrar_liquidacion(
     if propietario is None or propietario.tipo_usuario != models.TipoUsuario.PROPIETARIO:
         raise HTTPException(status_code=404, detail="El propietario no existe")
 
-    if not propietario.alias_cobro:
+    if not propietario.cuenta_cobro:
         raise HTTPException(status_code=400, detail="El propietario no cargó su CBU/alias de cobro")
 
     saldo = _resumen_cobros(db, propietario).saldo_a_cobrar
-    monto = datos.monto if datos.monto is not None else saldo  # sin monto: se liquida todo
+    monto = datos.monto if datos.monto is not None else saldo
 
     if monto <= 0:
         raise HTTPException(status_code=400, detail="El propietario no tiene saldo para liquidar")
@@ -533,10 +523,29 @@ def registrar_liquidacion(
     liquidacion = models.Liquidacion(
         propietario_id=propietario.id,
         monto=monto,
-        alias_destino=propietario.alias_cobro,
+        alias_destino=propietario.cuenta_cobro,
         referencia_externa=datos.referencia_externa,
     )
     db.add(liquidacion)
     db.commit()
     db.refresh(liquidacion)
     return liquidacion
+
+
+@app.get("/turnos/{turno_id}/precio", response_model=schemas.PrecioDetalle)
+def ver_precio_turno(
+    turno_id: int,
+    usar_puntos: bool = False,
+    db: Session = Depends(get_db),
+):
+    turno = db.get(models.Turno, turno_id)
+    if turno is None:
+        raise HTTPException(status_code=404, detail="El turno no existe")
+
+    precio = models.armar_precio(turno, usar_puntos)
+    total = precio.calcular()
+    return schemas.PrecioDetalle(
+        total=total,
+        sena=(total * models.PORCENTAJE_SENA).quantize(Decimal("0.01")),
+        detalle=precio.detalle(),
+    )

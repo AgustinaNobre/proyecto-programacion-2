@@ -1,5 +1,3 @@
-#describe qué datos permitimos que entren a nuestra API
-
 from datetime import datetime
 from decimal import Decimal
 
@@ -38,7 +36,6 @@ class UbicacionCrear(BaseModel):
     direccion: str = Field(min_length=1, max_length=200)
     latitud: float = Field(ge=-90, le=90)
     longitud: float = Field(ge=-180, le=180)
-
 
 
 class UbicacionRespuesta(BaseModel):
@@ -83,6 +80,7 @@ class ReservaRespuesta(BaseModel):
     usuario_id: int
     estado: EstadoReserva
     precio: Decimal
+    puntos_usados: int = 0
     fecha_creacion: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -90,18 +88,16 @@ class ReservaRespuesta(BaseModel):
     @computed_field
     @property
     def sena(self) -> Decimal:
-        # lo que se paga por la app
         return (self.precio * PORCENTAJE_SENA).quantize(Decimal("0.01"))
 
     @computed_field
     @property
     def saldo_en_el_lugar(self) -> Decimal:
-        # lo que se le paga al propietario en la cancha
         return self.precio - self.sena
 
 
 class PagoCrear(BaseModel):
-    medio_pago: MedioPago  # TRANSFERENCIA, MP o TARJETA
+    medio_pago: MedioPago
     referencia_externa: str | None = Field(default=None, max_length=150)
 
 
@@ -119,7 +115,7 @@ class PagoRespuesta(BaseModel):
 
 
 class AliasCobro(BaseModel):
-    alias_cobro: str = Field(min_length=3, max_length=100)  # CBU o alias
+    alias_cobro: str = Field(min_length=3, max_length=100)
 
 
 class ResumenCobros(BaseModel):
@@ -152,3 +148,9 @@ class LiquidacionRespuesta(BaseModel):
     referencia_externa: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PrecioDetalle(BaseModel):
+    total: Decimal
+    sena: Decimal
+    detalle: list[str]
