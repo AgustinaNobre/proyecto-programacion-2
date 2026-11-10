@@ -4,7 +4,7 @@ import math
 from decimal import Decimal
 
 from sqlalchemy.orm import relationship
-from sqlalchemy import Column, Integer, String, Enum, Float, CheckConstraint, Boolean, ForeignKey, DateTime, Numeric
+from sqlalchemy import Column, Integer, String, Enum, Float, CheckConstraint, Boolean, ForeignKey, DateTime, Numeric, UniqueConstraint
 from database import Base
 from datetime import datetime, timedelta, timezone
 
@@ -188,6 +188,28 @@ class EspacioDeportivo(Base):
         "Turno",
         back_populates="espacio_deportivo"
     )
+    resenas = relationship(
+        "Resena",
+        back_populates="espacio_deportivo"
+    )
+
+    @property
+    def cantidad_resenas(self) -> int:
+        return len(self.resenas)
+
+    @property
+    def promedio_puntaje(self) -> float | None:
+        if not self.resenas:
+            return None
+        return round(sum(r.puntaje for r in self.resenas) / len(self.resenas), 1)
+
+    def jugo_aca(self, usuario_id: int) -> bool:
+        return any(
+            reserva.usuario_id == usuario_id and reserva.estado == EstadoReserva.FINALIZADA
+            for turno in self.turnos
+            for reserva in turno.reservas
+        )
+
 
 class Turno(Base):
     __tablename__ = "turnos"
@@ -584,5 +606,52 @@ class Liquidacion(Base):
         CheckConstraint(
             "monto > 0",
             name="monto_liquidacion_valido"
+        ),
+    )
+
+
+class Resena(Base):
+    __tablename__ = "resenas"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    usuario_id = Column(
+        Integer,
+        ForeignKey("usuarios.id"),
+        nullable=False
+    )
+
+    espacio_deportivo_id = Column(
+        Integer,
+        ForeignKey("espacios_deportivos.id"),
+        nullable=False
+    )
+
+    puntaje = Column(Integer, nullable=False)
+
+    comentario = Column(String(500), nullable=True)
+
+    fecha = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+    usuario = relationship("Usuario")
+
+    espacio_deportivo = relationship(
+        "EspacioDeportivo",
+        back_populates="resenas"
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "puntaje BETWEEN 1 AND 5",
+            name="puntaje_valido"
+        ),
+        UniqueConstraint(
+            "usuario_id",
+            "espacio_deportivo_id",
+            name="una_resena_por_cancha"
         ),
     )

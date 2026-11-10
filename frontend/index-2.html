@@ -1,0 +1,1455 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Canchas · Reservá y jugá</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --bg: #f3f1ea; --surface: #ffffff; --ink: #10201a; --ink-2: #2b3a33; --muted: #66746c; --line: #e2ddd0;
+    --green: #146c43; --green-2: #0d4f30; --green-soft: #e1f2e8; --lime: #c8f04a;
+    --error: #b3261e; --error-soft: #fdecea; --warn: #7a5300; --warn-soft: #fff3d6; --info: #1d4f8c; --info-soft: #e7eff9;
+    --chalk: rgba(255,255,255,.22); --radius: 18px; --shadow: 0 1px 2px rgba(16,32,26,.06), 0 8px 24px rgba(16,32,26,.06);
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; font: 15px/1.5 Inter, system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+  h1, h2, h3, .brand, .num { font-family: Archivo, Inter, sans-serif; }
+  h1, h2, h3 { letter-spacing: -.01em; }
+  [hidden] { display: none !important; }
+  button { font: inherit; }
+  a { color: inherit; }
+
+  /* ---------- Controles ---------- */
+  label { display: block; font-size: 13px; font-weight: 600; margin: 0 0 6px; color: var(--ink-2); }
+  .field { margin-bottom: 14px; }
+  input, select {
+    width: 100%; padding: 12px 14px; font: 15px Inter, sans-serif; color: var(--ink);
+    border: 1.5px solid var(--line); border-radius: 12px; background: var(--surface); transition: border-color .15s, box-shadow .15s;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 4px var(--green-soft); }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    border: 0; border-radius: 12px; padding: 13px 20px; background: var(--ink); color: #fff;
+    font: 700 15px Inter, sans-serif; cursor: pointer; transition: transform .08s, background .15s;
+  }
+  .btn:hover { background: #22352c; }
+  .btn:active { transform: scale(.98); }
+  .btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+  .btn.full { width: 100%; }
+  .btn.lime { background: var(--lime); color: var(--ink); }
+  .btn.lime:hover { background: #b8e23a; }
+  .btn.ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
+  .btn.ghost:hover { background: #ebe7dc; }
+  .btn.danger { background: var(--error); }
+  .btn.small { padding: 9px 14px; font-size: 13px; border-radius: 10px; }
+  .linkbtn { background: none; border: 0; color: var(--green); font-weight: 700; cursor: pointer; padding: 0; font-size: 14px; }
+  .msg { border-radius: 12px; padding: 12px 14px; font-size: 14px; margin-bottom: 16px; }
+  .msg.error { background: var(--error-soft); color: var(--error); }
+  .msg.ok { background: var(--green-soft); color: var(--green-2); }
+  .msg.warn { background: var(--warn-soft); color: var(--warn); }
+  .hint { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; }
+  .muted { color: var(--muted); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .opt { display: flex; align-items: center; gap: 10px; font-weight: 500; font-size: 14px; margin: 0; cursor: pointer; color: var(--ink); }
+  .opt input { width: 18px; height: 18px; flex: none; accent-color: var(--green); }
+  .opt:has(input:disabled) { color: var(--muted); cursor: not-allowed; }
+
+  /* ---------- Acceso ---------- */
+  .auth { min-height: 100vh; display: grid; grid-template-columns: 1.15fr 1fr; }
+  .hero {
+    position: relative; background: var(--green); color: #fff; padding: 40px 48px; overflow: hidden;
+    display: flex; flex-direction: column; justify-content: space-between;
+    background-image: repeating-linear-gradient(90deg, transparent 0 80px, rgba(255,255,255,.035) 80px 160px);
+  }
+  .hero::before { content: ""; position: absolute; inset: 28px; border: 2px solid var(--chalk); border-radius: 8px; background: linear-gradient(var(--chalk), var(--chalk)) center / 2px 100% no-repeat; pointer-events: none; }
+  .hero::after { content: ""; position: absolute; width: 200px; height: 200px; left: 50%; top: 50%; transform: translate(-50%, -50%); border: 2px solid var(--chalk); border-radius: 50%; pointer-events: none; }
+  .hero > * { position: relative; z-index: 1; }
+  .brand { font-weight: 900; font-size: 20px; letter-spacing: .02em; display: flex; align-items: center; gap: 8px; }
+  .brand i { font-style: normal; background: var(--lime); color: var(--ink); width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-size: 16px; }
+  .hero h1 { font-size: clamp(38px, 5vw, 64px); line-height: .95; margin: 0 0 18px; font-weight: 900; max-width: 520px; }
+  .hero h1 em { font-style: normal; color: var(--lime); }
+  .hero p { margin: 0; font-size: 17px; opacity: .9; max-width: 440px; }
+  .status { display: inline-flex; align-items: center; gap: 10px; font-size: 13px; background: rgba(0,0,0,.22); padding: 8px 14px; border-radius: 999px; align-self: flex-start; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #c9c9c9; }
+  .dot.ok { background: var(--lime); box-shadow: 0 0 0 4px rgba(200,240,74,.25); }
+  .dot.fail { background: #ff8a80; }
+  .auth main { padding: 40px clamp(16px, 5vw, 64px); display: flex; align-items: center; }
+  .auth .card { width: 100%; max-width: 420px; margin: 0 auto; }
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; background: #e7e2d5; border-radius: 14px; padding: 4px; margin-bottom: 26px; }
+  .tab { border: 0; background: transparent; padding: 10px; border-radius: 10px; font-weight: 700; font-size: 14px; color: var(--muted); cursor: pointer; }
+  .tab[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+  .auth h2 { font-size: 30px; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 22px; }
+  .settings { margin-top: 26px; font-size: 13px; color: var(--muted); }
+  .settings summary { cursor: pointer; }
+  .settings .r { display: flex; gap: 8px; margin-top: 10px; }
+  .settings input { padding: 8px 10px; font-size: 13px; }
+
+  /* ---------- Barra superior ---------- */
+  header { background: var(--ink); color: #fff; position: sticky; top: 0; z-index: 1000; }
+  .bar { max-width: 1140px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 16px; }
+  .bar .brand { margin-right: auto; cursor: pointer; }
+  nav { display: flex; gap: 4px; }
+  nav button { background: transparent; border: 0; color: rgba(255,255,255,.7); font-weight: 600; font-size: 14px; padding: 8px 12px; border-radius: 10px; cursor: pointer; white-space: nowrap; }
+  nav button:hover { color: #fff; }
+  nav button[aria-current="true"] { background: rgba(255,255,255,.12); color: #fff; }
+  .user { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--lime); color: var(--ink); display: grid; place-items: center; font: 900 15px Archivo, sans-serif; flex: none; }
+  .who { line-height: 1.2; } .who small { opacity: .65; }
+  .pts { background: rgba(200,240,74,.15); color: var(--lime); border-radius: 999px; padding: 4px 10px; font-weight: 700; font-size: 12px; white-space: nowrap; }
+  .user button { background: rgba(255,255,255,.1); color: #fff; border: 0; border-radius: 10px; padding: 8px 11px; font-weight: 600; font-size: 12px; cursor: pointer; }
+
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 28px 16px 72px; }
+  .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+  .head h2 { font-size: 32px; margin: 0; font-weight: 900; }
+  .head p { margin: 4px 0 0; color: var(--muted); }
+  .back { margin-bottom: 16px; display: inline-flex; gap: 6px; }
+
+  /* ---------- Home: canchas ---------- */
+  .welcome {
+    background: var(--green); color: #fff; border-radius: 24px; padding: 28px 30px; margin-bottom: 22px; position: relative; overflow: hidden;
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+  }
+  .welcome::after { content: ""; position: absolute; right: -60px; top: -60px; width: 220px; height: 220px; border: 2px solid var(--chalk); border-radius: 50%; }
+  .welcome > * { position: relative; z-index: 1; }
+  .welcome h2 { font-size: clamp(26px, 3.4vw, 38px); margin: 0 0 4px; font-weight: 900; line-height: 1.05; }
+  .welcome h2 em { font-style: normal; color: var(--lime); }
+  .welcome p { margin: 0; opacity: .85; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+  .chip { border: 1.5px solid var(--line); background: var(--surface); border-radius: 999px; padding: 8px 15px; font-weight: 600; font-size: 13.5px; color: var(--ink); cursor: pointer; transition: all .15s; }
+  .chip:hover { border-color: var(--ink); }
+  .chip[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
+  .mapa { height: 520px; border-radius: var(--radius); border: 1.5px solid var(--line); z-index: 0; background: #e6e2d6; position: sticky; top: 84px; }
+  .mapa.chico { height: 230px; position: relative; top: auto; margin-bottom: 6px; }
+  .mapa.mini { height: 190px; position: relative; top: auto; }
+  .mapa-sin { display: grid; place-items: center; color: var(--muted); font-size: 14px; text-align: center; padding: 16px; }
+  .lista { display: grid; gap: 12px; }
+  .cancha {
+    display: grid; grid-template-columns: 112px 1fr; gap: 0; background: var(--surface); border: 1.5px solid var(--line);
+    border-radius: var(--radius); overflow: hidden; cursor: pointer; text-align: left; padding: 0; color: inherit; width: 100%;
+    transition: transform .12s, box-shadow .15s, border-color .15s;
+  }
+  .cancha:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: #cfc8b6; }
+  .cancha.activa { border-color: var(--green); box-shadow: 0 0 0 4px var(--green-soft); }
+  .art { position: relative; background: var(--c, var(--green)); min-height: 112px; display: grid; place-items: center; font-size: 34px; overflow: hidden; }
+  .art::before { content: ""; position: absolute; inset: 9px; border: 1.5px solid var(--chalk); border-radius: 4px; background: linear-gradient(var(--chalk), var(--chalk)) center / 1.5px 100% no-repeat; }
+  .art::after { content: ""; position: absolute; width: 38px; height: 38px; left: 50%; top: 50%; transform: translate(-50%,-50%); border: 1.5px solid var(--chalk); border-radius: 50%; }
+  .art span { position: relative; z-index: 1; filter: drop-shadow(0 2px 3px rgba(0,0,0,.25)); }
+  .cancha .body { padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .cancha h3 { margin: 0; font-size: 18px; font-weight: 800; }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--green-soft); color: var(--green-2); white-space: nowrap; }
+  .tag.alt { background: #eeebe2; color: var(--muted); }
+  .tag.warn { background: var(--warn-soft); color: var(--warn); }
+  .tag.err { background: var(--error-soft); color: var(--error); }
+  .tag.info { background: var(--info-soft); color: var(--info); }
+  .tag.lime { background: var(--lime); color: var(--ink); }
+  .meta { font-size: 13px; color: var(--muted); margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cancha .foot { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 4px; }
+  .dist { font-size: 12.5px; font-weight: 700; color: var(--info); }
+  .go { font-size: 13px; font-weight: 700; color: var(--green); }
+  .empty { text-align: center; padding: 44px 18px; color: var(--muted); border: 1.5px dashed #d4cdbb; border-radius: var(--radius); background: rgba(255,255,255,.4); }
+  .empty b { display: block; font: 800 18px Archivo, sans-serif; color: var(--ink); margin-bottom: 4px; }
+
+  /* ---------- Ficha de cancha ---------- */
+  .ficha { border-radius: 24px; overflow: hidden; background: var(--c, var(--green)); color: #fff; position: relative; padding: 34px 32px 28px; margin-bottom: 22px; }
+  .ficha::before { content: ""; position: absolute; inset: 16px; border: 2px solid var(--chalk); border-radius: 10px; background: linear-gradient(var(--chalk), var(--chalk)) center / 2px 100% no-repeat; pointer-events: none; }
+  .ficha::after { content: ""; position: absolute; width: 150px; height: 150px; left: 50%; top: 50%; transform: translate(-50%,-50%); border: 2px solid var(--chalk); border-radius: 50%; pointer-events: none; }
+  .ficha > * { position: relative; z-index: 1; }
+  .ficha .emoji { font-size: 44px; line-height: 1; margin-bottom: 10px; filter: drop-shadow(0 3px 4px rgba(0,0,0,.25)); }
+  .ficha h2 { font-size: clamp(28px, 4vw, 44px); margin: 0 0 10px; font-weight: 900; line-height: 1; }
+  .ficha .tags .tag { background: rgba(255,255,255,.18); color: #fff; }
+  .ficha .tags .tag.lime { background: var(--lime); color: var(--ink); }
+  .ficha .dir { margin: 12px 0 0; opacity: .9; }
+  .grid2 { display: grid; grid-template-columns: 1.35fr 1fr; gap: 18px; align-items: start; }
+  .panel { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius); padding: 22px; }
+  .panel h3 { margin: 0 0 14px; font-size: 19px; font-weight: 800; }
+  .panel + .panel { margin-top: 16px; }
+  .sticky { position: sticky; top: 84px; }
+  .slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+  .slot { border: 1.5px solid var(--line); background: var(--surface); border-radius: 12px; padding: 11px 6px; font: 800 17px Archivo, sans-serif; color: var(--ink); cursor: pointer; text-align: center; transition: all .12s; }
+  .slot small { display: block; font: 600 11.5px Inter, sans-serif; color: var(--muted); margin-top: 2px; }
+  .slot:hover { border-color: var(--green); }
+  .slot[aria-pressed="true"] { border-color: var(--green); background: var(--green); color: #fff; }
+  .slot[aria-pressed="true"] small { color: rgba(255,255,255,.8); }
+  .numturno { display: flex; gap: 10px; }
+  .numturno input { font: 800 20px Archivo, sans-serif; text-align: center; max-width: 140px; }
+  .lines { list-style: none; margin: 0 0 14px; padding: 12px 14px; background: #f6f4ee; border-radius: 12px; font-size: 13.5px; }
+  .lines li { padding: 3px 0; display: flex; justify-content: space-between; gap: 10px; }
+  .lines li.desc { color: var(--green); font-weight: 600; }
+  .kv { margin: 0; }
+  .kv div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid #efebe1; font-size: 14px; }
+  .kv div:first-child { border-top: 0; }
+  .kv dt { color: var(--muted); } .kv dd { margin: 0; font-weight: 700; text-align: right; }
+  .kv .total { padding: 12px 0; }
+  .kv .total dt { color: var(--ink); font-weight: 700; } .kv .total dd { font: 900 24px Archivo, sans-serif; color: var(--green); }
+  .placeholder { text-align: center; color: var(--muted); padding: 28px 10px; }
+  .placeholder span { font-size: 34px; display: block; margin-bottom: 6px; }
+
+  /* ---------- Pago ---------- */
+  .ticket { background: var(--surface); border-radius: 24px; box-shadow: var(--shadow); border: 1.5px solid var(--line); overflow: hidden; }
+  .ticket .top { background: var(--ink); color: #fff; padding: 22px 26px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .ticket .top h3 { margin: 0; font-size: 22px; font-weight: 900; }
+  .ticket .top p { margin: 2px 0 0; opacity: .7; font-size: 13px; }
+  .ticket .cut { border-top: 2px dashed var(--line); margin: 0 20px; position: relative; }
+  .ticket .cut::before, .ticket .cut::after { content: ""; position: absolute; top: -12px; width: 22px; height: 22px; border-radius: 50%; background: var(--bg); }
+  .ticket .cut::before { left: -32px; } .ticket .cut::after { right: -32px; }
+  .ticket .in { padding: 22px 26px; }
+  .reloj { display: flex; align-items: center; gap: 12px; }
+  .reloj svg { width: 54px; height: 54px; transform: rotate(-90deg); }
+  .reloj circle { fill: none; stroke-width: 5; }
+  .reloj .bgc { stroke: rgba(255,255,255,.15); } .reloj .fg { stroke: var(--lime); stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+  .reloj b { font: 900 26px Archivo, sans-serif; font-variant-numeric: tabular-nums; display: block; line-height: 1; }
+  .reloj small { opacity: .7; font-size: 12px; }
+  .reloj.expired .fg { stroke: #ff8a80; }
+  .medios { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 8px; }
+  .medio { position: relative; border: 1.5px solid var(--line); border-radius: 14px; padding: 14px 10px; text-align: center; cursor: pointer; font-weight: 700; font-size: 13.5px; margin: 0; color: var(--ink); transition: all .12s; }
+  .medio span { display: block; font-size: 24px; margin-bottom: 4px; }
+  .medio input { position: absolute; opacity: 0; pointer-events: none; }
+  .medio:has(input:checked) { border-color: var(--green); background: var(--green-soft); box-shadow: 0 0 0 3px var(--green-soft); }
+  .done { text-align: center; }
+  .check-ok { width: 70px; height: 70px; border-radius: 50%; background: var(--lime); color: var(--ink); display: grid; place-items: center; font-size: 34px; font-weight: 900; margin: 0 auto 14px; }
+  .note { background: #f6f4ee; border-radius: 12px; padding: 12px 14px; font-size: 13px; color: var(--muted); margin-top: 14px; text-align: left; }
+
+  /* ---------- Reservas ---------- */
+  .res { display: grid; grid-template-columns: 82px 1fr auto; gap: 16px; align-items: center; background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+  .res + .res { margin-top: 10px; }
+  .fecha { background: var(--ink); color: #fff; border-radius: 14px; text-align: center; padding: 10px 4px; line-height: 1.1; }
+  .fecha b { display: block; font: 900 24px Archivo, sans-serif; }
+  .fecha small { text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: .06em; opacity: .75; }
+  .fecha.sin { background: #eeebe2; color: var(--muted); }
+  .res h3 { margin: 0 0 4px; font-size: 17px; font-weight: 800; }
+  .res .info { font-size: 13px; color: var(--muted); display: flex; gap: 6px 14px; flex-wrap: wrap; }
+  .res .info b { color: var(--ink); }
+  .res .acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+  .confirmbox { grid-column: 1 / -1; background: #f6f4ee; border-radius: 12px; padding: 12px 14px; font-size: 14px; }
+  .confirmbox .acts { justify-content: flex-start; margin-top: 10px; }
+  .seccion { font: 800 13px Inter, sans-serif; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 26px 0 10px; }
+  .seccion:first-child { margin-top: 0; }
+
+  /* ---------- Complejo ---------- */
+  .subtabs { display: flex; gap: 6px; margin-bottom: 22px; overflow-x: auto; background: #e7e2d5; padding: 4px; border-radius: 14px; width: fit-content; max-width: 100%; }
+  .subtabs button { background: none; border: 0; padding: 9px 14px; border-radius: 10px; font-weight: 700; font-size: 14px; color: var(--muted); cursor: pointer; white-space: nowrap; }
+  .subtabs button[aria-current="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .stat { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius); padding: 16px 18px; }
+  .stat span { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px; }
+  .stat b { font: 900 28px Archivo, sans-serif; }
+  .stat.hl { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .stat.hl span { color: rgba(255,255,255,.65); } .stat.hl b { color: var(--lime); }
+  .list { list-style: none; margin: 0; padding: 0; }
+  .list li { padding: 12px 0; border-top: 1px solid #efebe1; }
+  .list li:first-child { border-top: 0; }
+  .list strong { display: block; } .list span { font-size: 13px; color: var(--muted); }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .seg label { position: relative; border: 1.5px solid var(--line); border-radius: 12px; padding: 11px 13px; cursor: pointer; font-weight: 700; margin: 0; text-align: center; color: var(--ink); }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg label:has(input:checked) { border-color: var(--green); background: var(--green-soft); color: var(--green-2); }
+
+  /* ---------- Autocompletar dirección ---------- */
+  .ac { position: relative; }
+  .ac-lista { position: absolute; left: 0; right: 0; top: calc(100% + 6px); background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px; box-shadow: 0 12px 30px rgba(16,32,26,.14); z-index: 1200; overflow: hidden; list-style: none; margin: 0; padding: 4px; }
+  .ac-lista li { padding: 10px 12px; border-radius: 10px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .ac-lista li[aria-selected="true"], .ac-lista li:hover { background: var(--green-soft); }
+  .ac-lista li b { display: block; font-weight: 700; font-size: 14px; }
+  .ac-lista li small { color: var(--muted); font-size: 12.5px; }
+  .ac-lista li.vacio { cursor: default; color: var(--muted); font-size: 13.5px; }
+  .ac-lista li.vacio:hover { background: none; }
+  .ubi-ok { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--green-2); background: var(--green-soft); border-radius: 10px; padding: 8px 12px; margin-top: 8px; }
+
+  /* ---------- Catálogo (admin) ---------- */
+  .cat { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .dep { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; }
+  .dep .ico { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; font-size: 22px; flex: none; background: var(--c); }
+  .dep h3 { margin: 0; font-size: 16px; font-weight: 800; }
+  .dep p { margin: 2px 0 8px; font-size: 13px; color: var(--muted); }
+  .dep .acts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .dep input { padding: 8px 10px; font-size: 14px; margin-bottom: 6px; }
+  .dep .uso { font-size: 12px; color: var(--muted); }
+
+  /* ---------- Perfil ---------- */
+  .perfil { display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: center; }
+  .perfil .avatar { width: 76px; height: 76px; font-size: 32px; }
+  .perfil h2 { margin: 0; font-size: 28px; font-weight: 900; }
+  .puntos { background: var(--ink); color: #fff; border-radius: var(--radius); padding: 22px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .puntos b { font: 900 44px Archivo, sans-serif; color: var(--lime); line-height: 1; }
+  .barra { height: 8px; background: rgba(255,255,255,.12); border-radius: 99px; overflow: hidden; margin-top: 10px; width: 220px; max-width: 100%; }
+  .barra i { display: block; height: 100%; background: var(--lime); border-radius: 99px; }
+
+  /* ---------- Mapa ---------- */
+  .yo-dot { width: 18px; height: 18px; border-radius: 50%; background: var(--info); border: 3px solid #fff; box-shadow: 0 0 0 2px var(--info), 0 0 0 8px rgba(29,79,140,.18); }
+  .pin { width: 34px; height: 34px; border-radius: 50% 50% 50% 0; background: var(--c, var(--green)); transform: rotate(-45deg); border: 2.5px solid #fff; box-shadow: 0 3px 8px rgba(0,0,0,.3); display: grid; place-items: center; }
+  .pin span { transform: rotate(45deg); font-size: 15px; }
+  .leaflet-popup-content-wrapper { border-radius: 14px; }
+  .leaflet-popup-content { font: 13px Inter, sans-serif; margin: 12px 14px; }
+  .leaflet-popup-content b { font: 800 15px Archivo, sans-serif; }
+  .leaflet-popup-content button { margin-top: 8px; }
+
+  @media (max-width: 900px) {
+    .split, .grid2 { grid-template-columns: 1fr; }
+    .mapa { height: 320px; position: relative; top: auto; }
+    .sticky { position: static; }
+  }
+  @media (max-width: 760px) {
+    .auth { grid-template-columns: 1fr; }
+    .hero { padding: 28px 24px; min-height: 260px; gap: 24px; }
+    .hero::before { inset: 14px; } .hero::after { width: 120px; height: 120px; }
+    .auth main { padding: 28px 16px 48px; }
+    .bar { flex-wrap: wrap; gap: 10px; }
+    nav { order: 3; width: 100%; overflow-x: auto; }
+    .who, .pts { display: none; }
+    .res { grid-template-columns: 64px 1fr; }
+    .res .acts { grid-column: 1 / -1; justify-content: flex-start; }
+    .medios { grid-template-columns: 1fr 1fr 1fr; }
+    .welcome { padding: 22px; }
+    .ficha { padding: 26px 22px 22px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= ACCESO ================= -->
+<div class="auth" id="authView">
+  <section class="hero">
+    <div class="brand"><i>⚽</i> CANCHAS</div>
+    <div>
+      <h1>Armá el partido.<br><em>La cancha la ponemos nosotros.</em></h1>
+      <p>Buscá canchas cerca tuyo, reservá en un toque pagando solo la seña, y el resto lo abonás cuando vas a jugar.</p>
+    </div>
+    <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">Conectando con la API…</span></div>
+  </section>
+  <main>
+    <div class="card">
+      <div class="tabs" role="tablist">
+        <button class="tab" id="tabLogin" aria-selected="true">Iniciar sesión</button>
+        <button class="tab" id="tabRegister" aria-selected="false">Crear cuenta</button>
+      </div>
+      <div id="authMsg"></div>
+      <form id="loginForm" novalidate>
+        <h2>¡Hola de nuevo!</h2>
+        <p class="sub">Ingresá con tu email y contraseña.</p>
+        <div class="field"><label for="loginEmail">Email</label><input id="loginEmail" type="email" autocomplete="username" placeholder="vos@email.com" required></div>
+        <div class="field"><label for="loginPass">Contraseña</label><input id="loginPass" type="password" autocomplete="current-password" required></div>
+        <button class="btn full" type="submit">Ingresar</button>
+      </form>
+      <form id="registerForm" novalidate hidden>
+        <h2>Sumate</h2>
+        <p class="sub">Creá tu cuenta en menos de un minuto.</p>
+        <div class="field"><label for="regNombre">Nombre</label><input id="regNombre" autocomplete="name" maxlength="100" required></div>
+        <div class="field"><label for="regEmail">Email</label><input id="regEmail" type="email" autocomplete="email" maxlength="150" placeholder="vos@email.com" required></div>
+        <div class="field"><label for="regPass">Contraseña</label><input id="regPass" type="password" autocomplete="new-password" minlength="6" required>
+          <p class="hint">Mínimo 6 caracteres.</p></div>
+        <button class="btn full" type="submit">Crear cuenta</button>
+      </form>
+      <details class="settings">
+        <summary>Configuración de la API</summary>
+        <div class="r"><input id="apiUrl" aria-label="URL de la API"><button class="btn ghost small" id="saveApi">Guardar</button></div>
+      </details>
+    </div>
+  </main>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="appView" hidden>
+  <header>
+    <div class="bar">
+      <div class="brand" data-goto="canchas"><i>⚽</i> CANCHAS</div>
+      <nav id="nav">
+        <button data-view="canchas">Canchas</button>
+        <button data-view="reservas">Mis reservas</button>
+        <button data-view="complejo" data-role="owner">Mi complejo</button>
+        <button data-view="deportes" data-role="admin">Deportes</button>
+        <button data-view="liquidaciones" data-role="admin">Liquidaciones</button>
+        <button data-view="perfil">Perfil</button>
+      </nav>
+      <div class="user">
+        <span class="pts" id="uPts">0 pts</span>
+        <div class="avatar" id="uAvatar">#</div>
+        <div class="who"><strong id="uNombre"></strong><br><small id="uRol"></small></div>
+        <button id="logout">Salir</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="wrap">
+
+    <!-- ===== Canchas ===== -->
+    <section data-section="canchas">
+      <div class="welcome">
+        <div>
+          <h2>Hola, <span id="hola"></span> 👋<br><em>¿Dónde jugamos hoy?</em></h2>
+          <p id="canchasCount">Cargando canchas…</p>
+        </div>
+        <button class="btn lime" id="cercaMio">📍 Ver las más cercanas</button>
+      </div>
+      <div id="canchasMsg"></div>
+      <div class="chips" id="filtros"></div>
+      <div class="split">
+        <div class="lista" id="canchasGrid"></div>
+        <div class="mapa" id="mapa"></div>
+      </div>
+    </section>
+
+    <!-- ===== Ficha de cancha ===== -->
+    <section data-section="cancha" hidden>
+      <button class="linkbtn back" data-goto="canchas">← Volver a canchas</button>
+      <div class="ficha" id="ficha">
+        <div class="emoji" id="fEmoji">⚽</div>
+        <h2 id="fNombre"></h2>
+        <div class="tags" id="fTags"></div>
+        <p class="dir" id="fDir"></p>
+      </div>
+      <div id="canchaMsg"></div>
+      <div class="grid2">
+        <div>
+          <!-- Con GET /turnos: grilla de horarios -->
+          <div class="panel" id="conGrilla" hidden>
+            <h3>Elegí el día</h3>
+            <div class="chips" id="dias"></div>
+            <h3>Horarios disponibles</h3>
+            <div class="slots" id="slots"></div>
+          </div>
+          <!-- Sin GET /turnos: pedir por número -->
+          <form class="panel" id="sinGrilla" novalidate>
+            <h3>Pedí tu turno</h3>
+            <p class="muted" style="margin:-6px 0 14px">Ingresá el número de turno que te pasó el complejo.</p>
+            <div class="numturno">
+              <input id="turnoId" type="number" min="1" step="1" placeholder="#" aria-label="Número de turno" required>
+              <button class="btn" type="submit">Ver precio</button>
+            </div>
+          </form>
+          <div class="panel">
+            <h3>Dónde queda</h3>
+            <div class="mapa mini" id="mapaMini"></div>
+          </div>
+        </div>
+        <div class="panel sticky" id="resumen">
+          <h3>Tu reserva</h3>
+          <div class="placeholder" id="sinPrecio"><span>🗓️</span>Elegí un turno para ver cuánto pagás.</div>
+          <div id="conPrecio" hidden>
+            <dl class="kv" id="cuando" style="margin-bottom:10px"></dl>
+            <ul class="lines" id="detalle"></ul>
+            <label class="opt" style="margin-bottom:14px"><input type="checkbox" id="usarPuntos"><span>Canjear <b>100 puntos</b> por un 10% off <span class="muted" id="misPuntos"></span></span></label>
+            <dl class="kv">
+              <div><dt>Total del turno</dt><dd id="prTotal"></dd></div>
+              <div><dt>Pagás en la cancha</dt><dd id="prSaldo"></dd></div>
+              <div class="total"><dt>Pagás ahora (seña 20%)</dt><dd id="prSena"></dd></div>
+            </dl>
+            <button class="btn lime full" id="btnReservar" style="margin-top:10px">Reservar</button>
+            <p class="hint" style="text-align:center">Tenés 5 minutos para pagar la seña.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Pago ===== -->
+    <section data-section="pago" hidden>
+      <div style="max-width:620px;margin:0 auto">
+        <div id="pagoMsg"></div>
+        <div class="ticket">
+          <div class="top">
+            <div><h3>Pagá la seña</h3><p id="pTitulo"></p></div>
+            <div class="reloj" id="reloj">
+              <svg viewBox="0 0 54 54"><circle class="bgc" cx="27" cy="27" r="23"/><circle class="fg" id="arco" cx="27" cy="27" r="23" stroke-dasharray="144.5" stroke-dashoffset="0"/></svg>
+              <div><b id="timerTxt">5:00</b><small id="timerLbl">te guardamos el turno</small></div>
+            </div>
+          </div>
+          <div class="in">
+            <dl class="kv">
+              <div><dt>Turno</dt><dd id="pTurno"></dd></div>
+              <div><dt>Total</dt><dd id="pPrecio"></dd></div>
+              <div><dt>Pagás en la cancha</dt><dd id="pSaldo"></dd></div>
+              <div class="total"><dt>Pagás ahora</dt><dd id="pSena"></dd></div>
+            </dl>
+          </div>
+          <div class="cut"></div>
+          <div class="in">
+            <label>Medio de pago</label>
+            <div class="medios">
+              <label class="medio"><input type="radio" name="medio" value="MP" checked><span>💙</span>Mercado Pago</label>
+              <label class="medio"><input type="radio" name="medio" value="TARJETA"><span>💳</span>Tarjeta</label>
+              <label class="medio"><input type="radio" name="medio" value="TRANSFERENCIA"><span>🏦</span>Transferencia</label>
+            </div>
+            <p class="hint">Pago simulado: se aprueba en el momento.</p>
+            <button class="btn lime full" id="btnPagar" style="margin-top:14px">Pagar</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Confirmación ===== -->
+    <section data-section="confirmada" hidden>
+      <div class="ticket done" style="max-width:520px;margin:10px auto">
+        <div class="in" style="padding-top:30px">
+          <div class="check-ok">✓</div>
+          <h2 style="margin:0 0 6px;font-size:28px;font-weight:900">¡El turno es tuyo!</h2>
+          <p class="muted" id="cTurno" style="margin:0"></p>
+        </div>
+        <div class="cut"></div>
+        <div class="in">
+          <dl class="kv" style="text-align:left">
+            <div><dt>Seña pagada</dt><dd id="cSena" style="color:var(--green)"></dd></div>
+            <div class="total"><dt>Llevá para la cancha</dt><dd id="cSaldo"></dd></div>
+          </dl>
+          <div class="note">Si cancelás con 48 hs o más de anticipación, te devolvemos la seña (y los puntos, si los usaste). Cuando juegues, sumás 10 puntos.</div>
+          <button class="btn full" data-goto="reservas" style="margin-top:18px">Ver mis reservas</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Mis reservas ===== -->
+    <section data-section="reservas" hidden>
+      <div class="head"><div><h2>Mis reservas</h2><p>Tus turnos activos y tu historial.</p></div>
+        <button class="btn ghost small" id="reloadReservas">↻ Actualizar</button></div>
+      <div id="reservasMsg"></div>
+      <div id="reservasList"></div>
+    </section>
+
+    <!-- ===== Mi complejo ===== -->
+    <section data-section="complejo" hidden>
+      <div class="head"><div><h2>Mi complejo</h2><p>Tus cobros, tus canchas y los partidos jugados.</p></div></div>
+      <div class="subtabs" id="subtabs">
+        <button data-sub="cobros" aria-current="true">💰 Cobros</button>
+        <button data-sub="turnos" data-turnos-api>🗓️ Turnos</button>
+        <button data-sub="finalizar">✅ Marcar como jugada</button>
+        <button data-sub="publicar">➕ Publicar cancha</button>
+      </div>
+      <div id="complejoMsg"></div>
+
+      <div data-subsection="cobros">
+        <div class="stats">
+          <div class="stat hl"><span>Saldo a cobrar</span><b id="sSaldo">$0</b></div>
+          <div class="stat"><span>A confirmar (faltan +48 hs)</span><b id="sConfirmar">$0</b></div>
+          <div class="stat"><span>Confirmado</span><b id="sConfirmado">$0</b></div>
+          <div class="stat"><span>Ya liquidado</span><b id="sLiquidado">$0</b></div>
+        </div>
+        <div class="grid2">
+          <form class="panel" id="aliasForm" novalidate>
+            <h3>Dónde recibís la plata</h3>
+            <div class="field"><label for="aAlias">CBU o alias</label><input id="aAlias" minlength="3" maxlength="100" placeholder="complejo.norte.mp" required></div>
+            <button class="btn full" type="submit">Guardar</button>
+            <p class="hint">La app cobra la seña (20%), se queda con el 5% del total y te transfiere el resto acá.</p>
+          </form>
+          <div class="panel"><h3>Liquidaciones recibidas</h3><ul class="list" id="misLiqs"></ul></div>
+        </div>
+      </div>
+
+      <div data-subsection="turnos" hidden>
+        <div class="grid2">
+          <form class="panel" id="turnoForm" novalidate>
+            <h3>Cargar horarios</h3>
+            <div class="field"><label for="tCancha">Cancha</label><select id="tCancha" required></select></div>
+            <div class="row">
+              <div class="field"><label for="tFecha">Día</label><input id="tFecha" type="date" required></div>
+              <div class="field"><label for="tHora">Desde</label><input id="tHora" type="time" step="1800" value="18:00" required></div>
+            </div>
+            <div class="row">
+              <div class="field"><label for="tDur">Duración de cada turno</label>
+                <select id="tDur"><option value="60" selected>1 hora</option><option value="90">1 h 30 min</option><option value="120">2 horas</option></select></div>
+              <div class="field"><label for="tCant">Cantidad de turnos</label>
+                <select id="tCant"><option value="1">1</option><option value="3">3 seguidos</option><option value="5" selected>5 seguidos</option><option value="8">8 seguidos</option></select></div>
+            </div>
+            <div class="field"><label for="tPrecio">Precio de cada turno</label><input id="tPrecio" type="number" min="0" step="500" value="25000" required></div>
+            <p class="hint" id="tPreview" style="margin:-4px 0 12px"></p>
+            <button class="btn full" type="submit">Cargar turnos</button>
+          </form>
+          <div class="panel"><h3>Turnos libres</h3><p class="hint" style="margin:-8px 0 10px">Los reservados dejan de aparecer acá.</p><ul class="list" id="misTurnos"></ul></div>
+        </div>
+      </div>
+
+      <div data-subsection="finalizar" hidden>
+        <div class="grid2">
+          <form class="panel" id="finForm" novalidate>
+            <h3>El cliente jugó y te pagó el resto</h3>
+            <div class="field"><label for="finId">Número de reserva</label><input id="finId" type="number" min="1" step="1" required></div>
+            <button type="button" class="btn ghost full" id="finVer">Ver pagos de la reserva</button>
+            <button class="btn full" type="submit" style="margin-top:10px">Marcar como jugada</button>
+            <p class="hint">Solo reservas confirmadas de tus canchas. El cliente suma 10 puntos.</p>
+          </form>
+          <div class="panel"><h3>Pagos de la reserva</h3><ul class="list" id="finPagos"><li><span>Ingresá un número de reserva.</span></li></ul></div>
+        </div>
+      </div>
+
+      <div data-subsection="publicar" hidden>
+        <div class="grid2">
+          <form class="panel" id="espacioForm" novalidate>
+            <h3>Nueva cancha</h3>
+            <div class="field"><label for="eNombre">Nombre</label><input id="eNombre" maxlength="100" placeholder="Cancha 1 – Complejo Norte" required></div>
+            <div class="field"><label>Tipo de espacio</label>
+              <div class="seg"><label><input type="radio" name="tipo" value="CANCHA" checked>Cancha</label><label><input type="radio" name="tipo" value="SALON">Salón</label></div></div>
+            <div class="field"><label for="eActividad">Deporte</label><select id="eActividad" required></select></div>
+            <div class="field ac">
+              <label for="eDireccion">Dirección</label>
+              <input id="eDireccion" maxlength="200" placeholder="Empezá a escribir: Av. Libertador 1200…" autocomplete="off" required
+                     role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="acLista">
+              <ul class="ac-lista" id="acLista" role="listbox" hidden></ul>
+              <div class="ubi-ok" id="ubiOk" hidden>📍 <span id="ubiTxt"></span></div>
+            </div>
+            <div class="field">
+              <div class="mapa chico" id="mapaPick"></div>
+              <p class="hint">Si el pin no quedó justo en la cancha, arrastralo o tocá el lugar exacto.</p>
+            </div>
+            <input type="hidden" id="eLat"><input type="hidden" id="eLon">
+            <button class="btn full" type="submit">Publicar cancha</button>
+          </form>
+          <div>
+            <div class="panel"><h3>Mis canchas</h3><ul class="list" id="misCanchas"></ul></div>
+            <p class="hint" style="margin:10px 4px">¿Falta un deporte en la lista? Pedíselo al administrador.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Deportes (admin) ===== -->
+    <section data-section="deportes" hidden>
+      <div class="head"><div><h2>Catálogo de deportes</h2><p>Los propietarios solo pueden publicar canchas de estos deportes.</p></div></div>
+      <div id="depMsg"></div>
+      <form class="panel" id="depForm" novalidate style="margin-bottom:18px">
+        <h3>Agregar deporte</h3>
+        <div class="row" style="grid-template-columns:1fr 2fr auto;align-items:end">
+          <div class="field" style="margin:0"><label for="dNombre">Nombre</label><input id="dNombre" minlength="2" maxlength="100" placeholder="Pádel" required></div>
+          <div class="field" style="margin:0"><label for="dDesc">Descripción <span class="muted" style="font-weight:400">(opcional)</span></label><input id="dDesc" maxlength="500" placeholder="Se juega en parejas, en cancha cerrada"></div>
+          <button class="btn" type="submit">Agregar</button>
+        </div>
+      </form>
+      <div class="cat" id="depLista"></div>
+    </section>
+
+    <!-- ===== Liquidaciones (admin) ===== -->
+    <section data-section="liquidaciones" hidden>
+      <div class="head"><div><h2>Liquidaciones</h2><p>Propietarios a los que la app les debe plata.</p></div>
+        <button class="btn ghost small" id="reloadLiq">↻ Actualizar</button></div>
+      <div id="liqMsg"></div>
+      <div id="liqList"></div>
+    </section>
+
+    <!-- ===== Perfil ===== -->
+    <section data-section="perfil" hidden>
+      <div class="panel" style="margin-bottom:16px">
+        <div class="perfil">
+          <div class="avatar" id="pfAvatar">#</div>
+          <div><h2 id="pfNombre"></h2><p class="muted" style="margin:2px 0 0" id="pfEmail"></p>
+            <div class="tags" style="margin-top:8px"><span class="tag" id="pfRol"></span><span class="tag alt" id="pfId"></span></div></div>
+        </div>
+      </div>
+      <div class="puntos">
+        <div><span style="opacity:.7;font-size:13px">Tus puntos</span><br><b id="pfPuntos">0</b>
+          <div class="barra"><i id="pfBarra" style="width:0%"></i></div>
+          <p class="hint" style="color:rgba(255,255,255,.7)" id="pfFalta"></p></div>
+        <div style="max-width:320px;font-size:14px;opacity:.85">Sumás <b style="color:var(--lime)">10 puntos</b> por cada partido jugado. Con <b style="color:var(--lime)">100 puntos</b> tenés un 10% de descuento en tu próxima reserva.</div>
+      </div>
+      <div class="msg warn" id="clienteNote" hidden style="margin-top:16px">
+        Tu cuenta es de <strong>cliente</strong>. Para publicar canchas hace falta ser propietario (por ahora el rol se cambia en la base de datos).
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+  // ================= Configuración =================
+  const DIRECT_API = "http://127.0.0.1:8000";
+  const MIN_PARA_PAGAR = 5, PUNTOS_DESCUENTO = 100;
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+    del(k) { try { localStorage.removeItem(k); } catch {} },
+  };
+  let API = store.get("api_url") || DIRECT_API;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  const plata = (n) => "$" + Number(n || 0).toLocaleString("es-AR", { maximumFractionDigits: 2 });
+  const fecha = (s) => new Date(/[zZ]|[+-]\d\d:\d\d$/.test(s) ? s : s + "Z");
+  const fHora = (d) => d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  const fDia = (d) => d.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
+  const fDiaCorto = (d) => d.toLocaleDateString("es-AR", { weekday: "short", day: "numeric", month: "numeric" });
+  const fCorta = (d) => d.toLocaleString("es-AR", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  const claveDia = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+  const state = {
+    user: null, actividades: [], espacios: [], filtro: null, yo: null,
+    turnosApi: false, turnos: [], dia: null, cancha: null, turno: null,
+    reserva: null, timerId: null, sub: "cobros", confirmando: null, cacheTurnos: {},
+  };
+
+  // Estilo por deporte (color + emoji), según el nombre de la actividad
+  const DEPORTES = [
+    [/mesa|ping/i, "🏓", "#b0302f"], [/f[uú]tbol tenis/i, "⚽", "#3f6f2a"],
+    [/f[uú]tbol|futsal|f5|f7/i, "⚽", "#146c43"], [/p[aá]del/i, "🎾", "#1d5fa8"], [/tenis/i, "🎾", "#b5532a"],
+    [/b[aá]squet|basket/i, "🏀", "#c2571a"], [/v[oó]ley/i, "🏐", "#a8781a"], [/hockey/i, "🏑", "#5b3fa0"],
+    [/rugby/i, "🏉", "#7a3b1d"], [/nataci|pileta/i, "🏊", "#0f7a8a"], [/handball|handbol/i, "🤾", "#8a2f4f"],
+    [/squash|front[oó]n/i, "🎾", "#4b5b6b"], [/b[aá]dminton/i, "🏸", "#3d7a2a"],
+    [/pickle/i, "🏓", "#2a7a6f"], [/patin/i, "⛸️", "#4a5fa0"],
+  ];
+  function estilo(actId) {
+    const n = actName(actId);
+    for (const [re, emoji, color] of DEPORTES) if (re.test(n)) return { emoji, color };
+    return { emoji: "🏅", color: "#2f5d50" };
+  }
+
+  async function detectApi() {
+    if (store.get("api_url") || !location.protocol.startsWith("http")) return;
+    try { const d = await (await fetch("/api/")).json(); if (d && d.mensaje) API = "/api"; } catch {}
+  }
+
+  function msg(el, text, type = "error") { $(el).innerHTML = text ? `<div class="msg ${type}">${esc(text)}</div>` : ""; }
+
+  function errorText(data, fallback) {
+    if (!data?.detail) return fallback;
+    if (typeof data.detail === "string") return data.detail;
+    if (Array.isArray(data.detail)) return data.detail.map(e => { const c = (e.loc || []).slice(-1)[0]; return c ? `${c}: ${e.msg}` : e.msg; }).join(" · ");
+    return fallback;
+  }
+
+  async function api(path, { method = "GET", json, form, auth = true, silent404 = false } = {}) {
+    const headers = {}; let body;
+    if (json) { headers["Content-Type"] = "application/json"; body = JSON.stringify(json); }
+    if (form) { headers["Content-Type"] = "application/x-www-form-urlencoded"; body = new URLSearchParams(form); }
+    const token = store.get("token");
+    if (auth && token) headers["Authorization"] = `Bearer ${token}`;
+    let res;
+    try { res = await fetch(API + path, { method, headers, body }); }
+    catch { throw new Error(`No se pudo conectar con la API (${API}). ¿Está corriendo uvicorn? Si abriste el archivo directo, usá servidor.py.`); }
+    let data = null; if (res.status !== 204) { try { data = await res.json(); } catch {} }
+    if (res.status === 401 && auth && token) { logout("Tu sesión venció. Volvé a iniciar sesión."); throw new Error("Sesión vencida"); }
+    if (res.status >= 500) throw new Error(`Error interno del backend (${res.status}). Mirá la terminal de uvicorn.`);
+    if (!res.ok) { const e = new Error(errorText(data, `Error ${res.status}`)); e.status = res.status; throw e; }
+    return data;
+  }
+
+  async function withBusy(btn, fn) {
+    btn.disabled = true; btn.dataset.label ??= btn.innerHTML; btn.textContent = "Un momento…";
+    try { await fn(); } finally { btn.disabled = false; btn.innerHTML = btn.dataset.label; }
+  }
+  const setLabel = (btn, html) => { btn.innerHTML = html; delete btn.dataset.label; };
+
+  async function checkApi() {
+    try { const d = await api("/", { auth: false }); $("statusDot").className = "dot ok"; $("statusText").textContent = d.mensaje || "API conectada"; }
+    catch { $("statusDot").className = "dot fail"; $("statusText").textContent = "API sin conexión"; }
+  }
+
+  // ================= Acceso =================
+  function setTab(login) {
+    $("tabLogin").setAttribute("aria-selected", login); $("tabRegister").setAttribute("aria-selected", !login);
+    $("loginForm").hidden = !login; $("registerForm").hidden = login; msg("authMsg", "");
+  }
+  $("tabLogin").onclick = () => setTab(true);
+  $("tabRegister").onclick = () => setTab(false);
+
+  $("registerForm").addEventListener("submit", (e) => {
+    e.preventDefault(); const f = e.currentTarget; if (!f.reportValidity()) return;
+    withBusy(f.querySelector("[type=submit]"), async () => {
+      try {
+        const u = await api("/usuarios", { method: "POST", auth: false, json: { nombre: $("regNombre").value.trim(), email: $("regEmail").value.trim(), password: $("regPass").value } });
+        f.reset(); setTab(true); $("loginEmail").value = u.email; $("loginPass").focus();
+        msg("authMsg", `¡Listo, ${u.nombre}! Ya podés iniciar sesión.`, "ok");
+      } catch (err) { msg("authMsg", err.message); }
+    });
+  });
+
+  $("loginForm").addEventListener("submit", (e) => {
+    e.preventDefault(); const f = e.currentTarget; if (!f.reportValidity()) return;
+    withBusy(f.querySelector("[type=submit]"), async () => {
+      try {
+        const d = await api("/login", { method: "POST", auth: false, form: { username: $("loginEmail").value.trim(), password: $("loginPass").value } });
+        store.set("token", d.access_token); f.reset(); await enterApp();
+      } catch (err) { msg("authMsg", err.message); }
+    });
+  });
+
+  function logout(reason) {
+    store.del("token"); state.user = null; clearInterval(state.timerId);
+    $("appView").hidden = true; $("authView").hidden = false; setTab(true);
+    if (reason) msg("authMsg", reason);
+  }
+  $("logout").onclick = () => logout();
+
+  // ================= Navegación =================
+  const ROLES = { CLIENTE: "Cliente", PROPIETARIO: "Propietario", SUPERADMIN: "Administrador" };
+  const isOwner = () => state.user?.tipo_usuario === "PROPIETARIO";
+  const isAdmin = () => state.user?.tipo_usuario === "SUPERADMIN";
+
+  function show(view) {
+    if (view !== "pago") clearInterval(state.timerId);
+    const navView = { cancha: "canchas", pago: "canchas", confirmada: "reservas" }[view] || view;
+    document.querySelectorAll("#nav button").forEach(b => b.setAttribute("aria-current", b.dataset.view === navView));
+    document.querySelectorAll("[data-section]").forEach(s => s.hidden = s.dataset.section !== view);
+    window.scrollTo(0, 0);
+    ({ canchas: loadCanchas, reservas: loadReservas, complejo: () => showSub(state.sub), deportes: loadDeportes, liquidaciones: loadLiquidaciones, perfil: refreshUser })[view]?.();
+  }
+  document.querySelectorAll("#nav button").forEach(b => b.onclick = () => show(b.dataset.view));
+  document.querySelectorAll("[data-goto]").forEach(b => b.onclick = () => show(b.dataset.goto));
+
+  async function refreshUser() {
+    try {
+      const u = await api("/usuarios/me"); state.user = u;
+      const ini = (u.nombre[0] || "#").toUpperCase(), pts = u.puntos ?? 0;
+      $("uAvatar").textContent = ini; $("pfAvatar").textContent = ini;
+      $("uNombre").textContent = u.nombre; $("uRol").textContent = ROLES[u.tipo_usuario] || u.tipo_usuario;
+      $("uPts").textContent = `${pts} pts`; $("hola").textContent = u.nombre.split(" ")[0];
+      $("pfNombre").textContent = u.nombre; $("pfEmail").textContent = u.email;
+      $("pfRol").textContent = ROLES[u.tipo_usuario] || u.tipo_usuario; $("pfId").textContent = `ID ${u.id}`;
+      $("pfPuntos").textContent = pts;
+      $("pfBarra").style.width = Math.min(100, pts % PUNTOS_DESCUENTO === 0 && pts > 0 ? 100 : (pts % PUNTOS_DESCUENTO)) + "%";
+      $("pfFalta").textContent = pts >= PUNTOS_DESCUENTO ? "¡Ya podés canjear un descuento!" : `Te faltan ${PUNTOS_DESCUENTO - pts} para tu próximo descuento.`;
+      $("misPuntos").textContent = `(tenés ${pts})`;
+      $("usarPuntos").disabled = pts < PUNTOS_DESCUENTO;
+      if ($("usarPuntos").disabled) $("usarPuntos").checked = false;
+    } catch {}
+  }
+
+  async function enterApp() {
+    await refreshUser();
+    if (!state.user) throw new Error("No se pudo cargar el usuario");
+    $("authView").hidden = true; $("appView").hidden = false;
+    $("clienteNote").hidden = isOwner() || isAdmin();
+    document.querySelectorAll('[data-role="owner"]').forEach(el => el.hidden = !isOwner());
+    document.querySelectorAll('[data-role="admin"]').forEach(el => el.hidden = !isAdmin());
+    // ¿El backend tiene GET /turnos? Si no (backend viejo), se pide el turno por número.
+    try { const t = await api("/turnos"); state.turnosApi = Array.isArray(t); } catch { state.turnosApi = false; }
+    document.querySelectorAll("[data-turnos-api]").forEach(el => el.hidden = !state.turnosApi);
+    show("canchas");
+  }
+
+  // ================= Mapa (Leaflet + OpenStreetMap) =================
+  const CENTRO = [-34.6037, -58.4416];
+  const HAY_MAPA = typeof L !== "undefined";
+  let mapa, capaPins, pinYo, mapaPick, pinPick, mapaMini, pinMini;
+  const marcadores = {};
+  const capaBase = (m) => L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap" }).addTo(m);
+  const iconoPin = (emoji = "⚽", color = "#146c43") => L.divIcon({ className: "", html: `<div class="pin" style="--c:${color}"><span>${emoji}</span></div>`, iconSize: [34, 34], iconAnchor: [17, 34], popupAnchor: [0, -30] });
+  const iconoYo = () => L.divIcon({ className: "", html: '<div class="yo-dot"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+  function sinMapa(id, texto) { $(id).classList.add("mapa-sin"); $(id).textContent = texto; }
+
+  function initMapa() {
+    if (!HAY_MAPA) { sinMapa("mapa", "No se pudo cargar el mapa (¿sin internet?)."); return false; }
+    if (!mapa) { mapa = L.map("mapa").setView(CENTRO, 11); capaBase(mapa); capaPins = L.layerGroup().addTo(mapa); }
+    mapa.invalidateSize();
+    return true;
+  }
+
+  function distanciaKm(a, b) {
+    const R = 6371, rad = (x) => x * Math.PI / 180;
+    const dLat = rad(b.lat - a.lat), dLon = rad(b.lon - a.lon);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+  const fKm = (km) => km < 1 ? `a ${Math.round(km * 1000)} m` : `a ${km.toLocaleString("es-AR", { maximumFractionDigits: 1 })} km`;
+
+  function pintarPins(lista) {
+    if (!initMapa()) return;
+    capaPins.clearLayers(); Object.keys(marcadores).forEach(k => delete marcadores[k]);
+    const puntos = [];
+    lista.forEach(e => {
+      if (!e.ubicacion) return;
+      const ll = [e.ubicacion.latitud, e.ubicacion.longitud], s = estilo(e.actividad_id);
+      const m = L.marker(ll, { icon: iconoPin(s.emoji, s.color) }).bindPopup(
+        `<b>${esc(e.nombre)}</b><br>${esc(actName(e.actividad_id))}<br><span style="color:#66746c">📍 ${esc(e.ubicacion.direccion)}</span>`
+        + (state.yo && isFinite(e.dist) ? `<br><b style="font:700 12px Inter;color:#1d4f8c">${fKm(e.dist)}</b>` : "")
+        + `<br><button class="btn small lime" data-abrir="${e.id}">Ver turnos →</button>`);
+      m.on("click", () => marcarCard(e.id));
+      m.on("popupopen", (ev) => ev.popup.getElement().querySelector("[data-abrir]")?.addEventListener("click", () => abrirCancha(e.id)));
+      m.addTo(capaPins); marcadores[e.id] = m; puntos.push(ll);
+    });
+    if (state.yo) puntos.push([state.yo.lat, state.yo.lon]);
+    const encuadrar = () => {
+      mapa.invalidateSize();
+      if (puntos.length === 1) mapa.setView(puntos[0], 14);
+      else if (puntos.length > 1) mapa.fitBounds(puntos, { padding: [50, 50], maxZoom: 15 });
+    };
+    encuadrar(); requestAnimationFrame(encuadrar);
+  }
+
+  function marcarCard(id) {
+    document.querySelectorAll(".cancha").forEach(c => c.classList.toggle("activa", Number(c.dataset.id) === id));
+    document.querySelector(`.cancha[data-id="${id}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+
+  $("cercaMio").onclick = (e) => {
+    if (!navigator.geolocation) return msg("canchasMsg", "Tu navegador no permite obtener la ubicación.");
+    const btn = e.currentTarget; btn.disabled = true; btn.textContent = "Buscándote…";
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        state.yo = { lat: p.coords.latitude, lon: p.coords.longitude };
+        btn.disabled = false; btn.textContent = "📍 Ordenadas por cercanía"; msg("canchasMsg", "");
+        if (HAY_MAPA && initMapa()) {
+          if (pinYo) pinYo.remove();
+          pinYo = L.marker([state.yo.lat, state.yo.lon], { icon: iconoYo(), zIndexOffset: 1000 }).bindPopup("Estás acá").addTo(mapa);
+        }
+        loadCanchas();
+      },
+      () => { btn.disabled = false; btn.textContent = "📍 Ver las más cercanas"; msg("canchasMsg", "No pudimos obtener tu ubicación. Revisá los permisos del navegador."); },
+      { enableHighAccuracy: true, timeout: 10000 });
+  };
+
+  function initMapaPick() {
+    if (!HAY_MAPA) return sinMapa("mapaPick", "No se pudo cargar el mapa. Elegí la dirección de la lista.");
+    if (!mapaPick) {
+      mapaPick = L.map("mapaPick").setView(state.yo ? [state.yo.lat, state.yo.lon] : CENTRO, 12); capaBase(mapaPick);
+      mapaPick.on("click", (ev) => { fijarUbicacion(ev.latlng.lat, ev.latlng.lng); completarDireccion(ev.latlng.lat, ev.latlng.lng); });
+    }
+    setTimeout(() => mapaPick.invalidateSize(), 0);
+  }
+
+  function fijarUbicacion(lat, lon, centrar = false) {
+    $("eLat").value = lat.toFixed(6); $("eLon").value = lon.toFixed(6);
+    if (!HAY_MAPA || !mapaPick) return;
+    if (pinPick) pinPick.setLatLng([lat, lon]);
+    else {
+      pinPick = L.marker([lat, lon], { icon: iconoPin(), draggable: true }).addTo(mapaPick);
+      pinPick.on("dragend", () => { const p = pinPick.getLatLng(); fijarUbicacion(p.lat, p.lng); completarDireccion(p.lat, p.lng); });
+    }
+    if (centrar) mapaPick.setView([lat, lon], 16);
+  }
+
+  // ---------- Autocompletar dirección (Photon, sobre OpenStreetMap) ----------
+  const PHOTON = "https://photon.komoot.io";
+  const ARGENTINA = "-73.6,-55.1,-53.6,-21.8";
+  let acTimer, acCtrl, acItems = [], acSel = -1;
+
+  function etiqueta(p) {
+    const calle = p.street ? `${p.street}${p.housenumber ? " " + p.housenumber : ""}` : (p.name || "");
+    const titulo = p.name && p.street && p.name !== p.street && p.type !== "house" ? `${p.name} · ${calle}` : calle || p.name || "";
+    const zona = [...new Set([p.district || p.locality, p.city || p.county, p.state].filter(Boolean))].filter(z => z !== titulo).join(", ");
+    return { titulo, zona, completa: [calle || p.name, p.city || p.county || p.locality].filter(Boolean).join(", ") };
+  }
+
+  function cerrarAc() { $("acLista").hidden = true; $("eDireccion").setAttribute("aria-expanded", "false"); acSel = -1; }
+
+  function pintarAc() {
+    const ul = $("acLista");
+    ul.innerHTML = acItems.length
+      ? acItems.map((it, i) => `<li role="option" data-i="${i}" aria-selected="${i === acSel}"><span>📍</span><div><b>${esc(it.titulo)}</b><small>${esc(it.zona)}</small></div></li>`).join("")
+      : `<li class="vacio">No encontramos esa dirección. Probá con calle y número, o marcala en el mapa.</li>`;
+    ul.hidden = false; $("eDireccion").setAttribute("aria-expanded", "true");
+    ul.querySelectorAll("li[data-i]").forEach(li => li.onmousedown = (e) => { e.preventDefault(); elegirAc(Number(li.dataset.i)); });
+  }
+
+  function elegirAc(i) {
+    const it = acItems[i]; if (!it) return;
+    $("eDireccion").value = it.completa;
+    fijarUbicacion(it.lat, it.lon, true);
+    $("ubiTxt").textContent = `Ubicación encontrada: ${it.titulo}${it.zona ? ", " + it.zona : ""}`; $("ubiOk").hidden = false;
+    cerrarAc();
+  }
+
+  async function buscarDireccion(q) {
+    acCtrl?.abort(); acCtrl = new AbortController();
+    const cerca = state.yo ? `&lat=${state.yo.lat}&lon=${state.yo.lon}` : `&lat=${CENTRO[0]}&lon=${CENTRO[1]}`;
+    try {
+      const r = await fetch(`${PHOTON}/api/?q=${encodeURIComponent(q)}&limit=6&bbox=${ARGENTINA}${cerca}`, { signal: acCtrl.signal });
+      const data = await r.json();
+      acItems = (data.features || []).map(f => ({ ...etiqueta(f.properties || {}), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }))
+        .filter((it, i, arr) => it.titulo && arr.findIndex(o => o.titulo === it.titulo && o.zona === it.zona) === i);
+      acSel = acItems.length ? 0 : -1; pintarAc();
+    } catch (e) { if (e.name !== "AbortError") { acItems = []; cerrarAc(); msg("complejoMsg", "No se pudo buscar la dirección (¿sin internet?). Podés marcarla tocando el mapa."); } }
+  }
+
+  async function completarDireccion(lat, lon) {
+    try {
+      const data = await (await fetch(`${PHOTON}/reverse?lat=${lat}&lon=${lon}`)).json();
+      const p = data.features?.[0]?.properties; if (!p) return;
+      const it = etiqueta(p);
+      $("eDireccion").value = it.completa;
+      $("ubiTxt").textContent = `Ubicación marcada: ${it.titulo}${it.zona ? ", " + it.zona : ""}`; $("ubiOk").hidden = false;
+    } catch {}
+  }
+
+  $("eDireccion").addEventListener("input", () => {
+    $("eLat").value = ""; $("eLon").value = ""; $("ubiOk").hidden = true;
+    clearTimeout(acTimer);
+    const q = $("eDireccion").value.trim();
+    if (q.length < 3) return cerrarAc();
+    acTimer = setTimeout(() => buscarDireccion(q), 350);
+  });
+  $("eDireccion").addEventListener("keydown", (e) => {
+    if ($("acLista").hidden || !acItems.length) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); acSel = (acSel + 1) % acItems.length; pintarAc(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); acSel = (acSel - 1 + acItems.length) % acItems.length; pintarAc(); }
+    else if (e.key === "Enter") { e.preventDefault(); elegirAc(acSel); }
+    else if (e.key === "Escape") cerrarAc();
+  });
+  $("eDireccion").addEventListener("blur", () => setTimeout(cerrarAc, 150));
+
+  // ================= Canchas =================
+  const actName = (id) => state.actividades.find(a => a.id === id)?.nombre || "Deporte";
+  const espacioById = (id) => state.espacios.find(e => e.id === id);
+  const misEspacios = () => state.espacios.filter(e => e.propietario_id === state.user?.id);
+
+  async function cargarDatos() {
+    const [acts, esps] = await Promise.all([api("/actividades"), api("/espacios-deportivos")]);
+    state.actividades = acts; state.espacios = esps;
+  }
+
+  async function loadCanchas() {
+    try { await cargarDatos(); } catch (err) { $("canchasCount").textContent = err.message; return; }
+    renderSelects();
+    const usados = [...new Set(state.espacios.map(e => e.actividad_id))];
+    $("filtros").innerHTML = usados.length > 1 ? [`<button class="chip" data-f="" aria-pressed="${state.filtro === null}">Todas</button>`]
+      .concat(usados.map(id => `<button class="chip" data-f="${id}" aria-pressed="${state.filtro === id}">${estilo(id).emoji} ${esc(actName(id))}</button>`)).join("") : "";
+    $("filtros").querySelectorAll(".chip").forEach(c => c.onclick = () => { state.filtro = c.dataset.f ? Number(c.dataset.f) : null; loadCanchas(); });
+
+    const lista = state.espacios.filter(e => state.filtro === null || e.actividad_id === state.filtro);
+    if (state.yo) {
+      lista.forEach(e => { e.dist = e.ubicacion ? distanciaKm(state.yo, { lat: e.ubicacion.latitud, lon: e.ubicacion.longitud }) : Infinity; });
+      lista.sort((a, b) => a.dist - b.dist);
+    }
+    if (state.espacios.length && !state.espacios[0].ubicacion)
+      msg("canchasMsg", "El backend no está devolviendo la ubicación de las canchas, así que no aparecen en el mapa. Agregá `ubicacion: UbicacionRespuesta` en EspacioDeportivoRespuesta (schemas.py).", "warn");
+    const n = lista.length;
+    $("canchasCount").textContent = n ? `${n} ${n === 1 ? "cancha disponible" : "canchas disponibles"}${state.yo ? " · ordenadas por cercanía" : ""}` : "Todavía no hay canchas publicadas.";
+    $("canchasGrid").innerHTML = n ? lista.map(e => {
+      const s = estilo(e.actividad_id);
+      return `<button class="cancha" data-id="${e.id}">
+        <div class="art" style="--c:${s.color}"><span>${s.emoji}</span></div>
+        <div class="body">
+          <h3>${esc(e.nombre)}</h3>
+          <div class="tags"><span class="tag">${esc(actName(e.actividad_id))}</span><span class="tag alt">${e.tipo === "SALON" ? "Salón" : "Cancha"}</span>
+            ${e.propietario_id === state.user?.id ? `<span class="tag lime">Tuya</span>` : ""}</div>
+          ${e.ubicacion ? `<p class="meta">📍 ${esc(e.ubicacion.direccion)}</p>` : ""}
+          <div class="foot"><span class="dist">${state.yo && isFinite(e.dist) ? fKm(e.dist) : ""}</span><span class="go">Ver turnos →</span></div>
+        </div></button>`;
+    }).join("") : `<div class="empty"><b>Todavía no hay canchas</b>${isOwner() ? "Publicá la primera desde Mi complejo." : "Volvé en un rato."}</div>`;
+    $("canchasGrid").querySelectorAll(".cancha").forEach(c => {
+      c.onclick = () => abrirCancha(Number(c.dataset.id));
+      c.onmouseenter = () => { const m = marcadores[Number(c.dataset.id)]; if (m) m.openPopup(); };
+    });
+    pintarPins(lista);
+  }
+
+  // ================= Ficha de cancha =================
+  async function abrirCancha(id) {
+    if (!state.espacios.length) await cargarDatos();
+    const e = espacioById(id); if (!e) return;
+    state.cancha = e; state.turno = null; state.dia = null;
+    const s = estilo(e.actividad_id);
+    $("ficha").style.setProperty("--c", s.color); $("fEmoji").textContent = s.emoji;
+    $("fNombre").textContent = e.nombre;
+    $("fTags").innerHTML = `<span class="tag lime">${esc(actName(e.actividad_id))}</span><span class="tag">${e.tipo === "SALON" ? "Salón" : "Cancha"}</span>`
+      + (state.yo && isFinite(e.dist) ? `<span class="tag">${fKm(e.dist)}</span>` : "");
+    $("fDir").textContent = e.ubicacion ? `📍 ${e.ubicacion.direccion}` : "";
+    msg("canchaMsg", ""); $("turnoId").value = ""; refreshUser();
+    $("conGrilla").hidden = !state.turnosApi; $("sinGrilla").hidden = state.turnosApi;
+    mostrarResumen(null);
+    show("cancha");
+
+    if (HAY_MAPA && e.ubicacion) {
+      const ll = [e.ubicacion.latitud, e.ubicacion.longitud];
+      if (!mapaMini) { mapaMini = L.map("mapaMini", { zoomControl: false, attributionControl: false }).setView(ll, 15); capaBase(mapaMini); }
+      mapaMini.setView(ll, 15);
+      if (pinMini) pinMini.remove(); pinMini = L.marker(ll, { icon: iconoPin(s.emoji, s.color) }).addTo(mapaMini);
+      setTimeout(() => mapaMini.invalidateSize(), 0);
+      $("mapaMini").parentElement.hidden = false;
+    } else $("mapaMini").parentElement.hidden = true;
+
+    if (state.turnosApi) {
+      $("slots").innerHTML = `<p class="muted">Cargando horarios…</p>`;
+      try {
+        const todos = await api("/turnos");
+        const ahora = Date.now();
+        state.turnos = todos.filter(t => t.espacio_deportivo_id === id && fecha(t.fecha_hora_inicio) > ahora)
+          .sort((a, b) => fecha(a.fecha_hora_inicio) - fecha(b.fecha_hora_inicio));
+        renderDias();
+      } catch (err) { msg("canchaMsg", err.message); $("slots").innerHTML = ""; }
+    }
+  }
+
+  function renderDias() {
+    const dias = [];
+    state.turnos.forEach(t => { const d = fecha(t.fecha_hora_inicio); if (!dias.some(x => claveDia(x) === claveDia(d))) dias.push(d); });
+    if (!dias.length) { $("dias").innerHTML = ""; $("slots").innerHTML = `<div class="empty" style="grid-column:1/-1"><b>Sin horarios libres</b>Esta cancha no tiene turnos disponibles por ahora.</div>`; return; }
+    if (!state.dia || !dias.some(d => claveDia(d) === state.dia)) state.dia = claveDia(dias[0]);
+    $("dias").innerHTML = dias.map(d => `<button class="chip" data-d="${claveDia(d)}" aria-pressed="${claveDia(d) === state.dia}">${esc(cap(fDiaCorto(d)))}</button>`).join("");
+    $("dias").querySelectorAll(".chip").forEach(c => c.onclick = () => { state.dia = c.dataset.d; state.turno = null; mostrarResumen(null); renderDias(); });
+    const delDia = state.turnos.filter(t => claveDia(fecha(t.fecha_hora_inicio)) === state.dia);
+    $("slots").innerHTML = delDia.map(t => `<button class="slot" data-id="${t.id}" aria-pressed="${state.turno?.id === t.id}">${fHora(fecha(t.fecha_hora_inicio))}<small>${plata(t.precio)}</small></button>`).join("");
+    $("slots").querySelectorAll(".slot").forEach(b => b.onclick = () => {
+      state.turno = state.turnos.find(t => t.id === Number(b.dataset.id)); renderDias(); verPrecio().catch(err => msg("canchaMsg", err.message));
+    });
+  }
+
+  $("sinGrilla").addEventListener("submit", (e) => {
+    e.preventDefault(); const f = e.currentTarget; if (!f.reportValidity()) return;
+    msg("canchaMsg", "");
+    withBusy(f.querySelector("[type=submit]"), async () => {
+      state.turno = { id: Number($("turnoId").value) };
+      try { await verPrecio(); } catch (err) { state.turno = null; mostrarResumen(null); msg("canchaMsg", err.message); }
+    });
+  });
+
+  async function verPrecio() {
+    const p = await api(`/turnos/${state.turno.id}/precio?usar_puntos=${$("usarPuntos").checked}`, { auth: false });
+    mostrarResumen(p);
+  }
+  $("usarPuntos").onchange = () => { if (state.turno) verPrecio().catch(err => msg("canchaMsg", err.message)); };
+
+  function mostrarResumen(p) {
+    $("sinPrecio").hidden = !!p; $("conPrecio").hidden = !p;
+    if (!p) return;
+    const t = state.turno;
+    $("cuando").innerHTML = t.fecha_hora_inicio
+      ? `<div><dt>Día</dt><dd>${esc(cap(fDia(fecha(t.fecha_hora_inicio))))}</dd></div><div><dt>Horario</dt><dd>${fHora(fecha(t.fecha_hora_inicio))} a ${fHora(fecha(t.fecha_hora_fin))}</dd></div>`
+      : `<div><dt>Turno</dt><dd>#${t.id}</dd></div>`;
+    $("detalle").innerHTML = p.detalle.map((l, i) => {
+      const [txt, val = ""] = l.split(/:\s*(?=[-+]?\$)/);
+      const monto = val.replace(/([-+]?)\$([\d.]+)/, (_, signo, n) => (signo === "-" ? "−" : signo) + plata(n));
+      return `<li class="${i ? "desc" : ""}"><span>${esc(txt)}</span><b>${esc(monto)}</b></li>`;
+    }).join("");
+    $("prTotal").textContent = plata(p.total); $("prSena").textContent = plata(p.sena); $("prSaldo").textContent = plata(p.total - p.sena);
+    setLabel($("btnReservar"), `Reservar y pagar ${plata(p.sena)}`);
+  }
+
+  $("btnReservar").onclick = (e) => withBusy(e.currentTarget, async () => {
+    try {
+      const usar = $("usarPuntos").checked;
+      let r;
+      try { r = await api("/reservas", { method: "POST", json: { turno_id: state.turno.id, usar_puntos: usar } }); }
+      catch (err) {
+        if (err.status !== 404 && err.status !== 405) throw err;
+        r = await api(`/turnos/${state.turno.id}/reservas?usar_puntos=${usar}`, { method: "POST" });  // backend viejo
+      }
+      abrirPago(r);
+    } catch (err) { msg("canchaMsg", err.message); }
+  });
+
+  // ================= Pago =================
+  const ARCO = 144.5;
+  function abrirPago(r) {
+    state.reserva = r;
+    const t = state.turno?.id === r.turno_id ? state.turno : state.cacheTurnos[r.turno_id];
+    const cancha = t?.espacio_deportivo_id ? espacioById(t.espacio_deportivo_id) : state.cancha;
+    $("pTitulo").textContent = `${cancha ? cancha.nombre + " · " : ""}Reserva #${r.id}`;
+    $("pTurno").textContent = t?.fecha_hora_inicio ? `${cap(fDiaCorto(fecha(t.fecha_hora_inicio)))} · ${fHora(fecha(t.fecha_hora_inicio))}` : `#${r.turno_id}`;
+    $("pPrecio").textContent = plata(r.precio) + (r.puntos_usados ? ` (−${r.puntos_usados} pts)` : "");
+    $("pSena").textContent = plata(r.sena); $("pSaldo").textContent = plata(r.saldo_en_el_lugar);
+    setLabel($("btnPagar"), `Pagar ${plata(r.sena)}`);
+    msg("pagoMsg", ""); show("pago");
+    const vence = fecha(r.fecha_creacion).getTime() + MIN_PARA_PAGAR * 60000, total = MIN_PARA_PAGAR * 60;
+    const tick = () => {
+      const s = Math.max(0, Math.round((vence - Date.now()) / 1000));
+      $("timerTxt").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+      $("arco").style.strokeDashoffset = ARCO * (1 - s / total);
+      const expired = s === 0;
+      $("reloj").classList.toggle("expired", expired);
+      $("timerLbl").textContent = expired ? "se venció el tiempo" : "te guardamos el turno";
+      $("btnPagar").disabled = expired;
+      if (expired) { clearInterval(state.timerId); msg("pagoMsg", "Se venció el tiempo para pagar y el turno se liberó. Podés volver a reservarlo."); }
+    };
+    clearInterval(state.timerId); tick(); state.timerId = setInterval(tick, 1000);
+  }
+
+  $("btnPagar").onclick = (e) => withBusy(e.currentTarget, async () => {
+    try {
+      const medio = document.querySelector("input[name=medio]:checked").value;
+      const pago = await api(`/reservas/${state.reserva.id}/pago`, { method: "POST", json: { medio_pago: medio } });
+      clearInterval(state.timerId);
+      const r = state.reserva, t = state.turno?.id === r.turno_id ? state.turno : state.cacheTurnos[r.turno_id];
+      $("cTurno").innerHTML = esc($("pTitulo").textContent) + (t?.fecha_hora_inicio ? `<br>${esc(cap(fDia(fecha(t.fecha_hora_inicio))))} · ${fHora(fecha(t.fecha_hora_inicio))}` : "");
+      $("cSena").textContent = plata(pago.monto); $("cSaldo").textContent = plata(r.saldo_en_el_lugar);
+      refreshUser(); show("confirmada");
+    } catch (err) { msg("pagoMsg", err.message); }
+  });
+
+  // ================= Mis reservas =================
+  const ESTADOS = { EN_PROCESO: ["Falta pagar la seña", "warn"], CONFIRMADA: ["Confirmada", ""], FINALIZADA: ["Jugada · +10 pts", "alt"], CANCELADA: ["Cancelada", "err"] };
+
+  async function turnoDe(id) {
+    if (id in state.cacheTurnos) return state.cacheTurnos[id];
+    if (!state.turnosApi) return (state.cacheTurnos[id] = null);
+    try { return (state.cacheTurnos[id] = await api(`/turnos/${id}`)); } catch { return (state.cacheTurnos[id] = null); }
+  }
+
+  async function loadReservas() {
+    $("reservasList").innerHTML = `<p class="muted">Cargando…</p>`;
+    try {
+      if (!state.espacios.length) await cargarDatos();
+      const rs = await api("/reservas");
+      await Promise.all(rs.map(r => turnoDe(r.turno_id)));
+      renderReservas(rs); refreshUser();
+    } catch (err) { $("reservasList").innerHTML = ""; msg("reservasMsg", err.message); }
+  }
+  $("reloadReservas").onclick = () => { msg("reservasMsg", ""); loadReservas(); };
+
+  function tarjetaReserva(r) {
+    const t = state.cacheTurnos[r.turno_id], cancha = t ? espacioById(t.espacio_deportivo_id) : null;
+    const ini = t ? fecha(t.fecha_hora_inicio) : null;
+    const vencida = r.estado === "EN_PROCESO" && Date.now() > fecha(r.fecha_creacion).getTime() + MIN_PARA_PAGAR * 60000;
+    const [txt, cls] = vencida ? ["Vencida", "err"] : (ESTADOS[r.estado] || [r.estado, "alt"]);
+    let acts = "";
+    if (r.estado === "EN_PROCESO" && !vencida) acts = `<button class="btn small lime" data-pagar="${r.id}">Pagar seña</button>`;
+    if (["EN_PROCESO", "CONFIRMADA"].includes(r.estado) && !vencida) acts += `<button class="btn ghost small" data-cancelar="${r.id}">Cancelar</button>`;
+    let aviso = "";
+    if (r.estado === "CONFIRMADA") {
+      aviso = ini ? ((ini - Date.now()) / 3600000 >= 48 ? `Faltan más de 48 hs: <b>te devolvemos la seña de ${plata(r.sena)}</b>.` : `Faltan menos de 48 hs: <b>la seña de ${plata(r.sena)} no se devuelve</b>.`)
+        : `Si faltan 48 hs o más para el turno, te devolvemos la seña de ${plata(r.sena)}. Si falta menos, no se devuelve.`;
+    } else aviso = "Se libera el turno.";
+    const confirm = state.confirmando === r.id ? `<div class="confirmbox">${aviso}
+        <div class="acts"><button class="btn danger small" data-si="${r.id}">Sí, cancelar</button><button class="btn ghost small" data-no>No, dejala</button></div></div>` : "";
+    return `<div class="res">
+      ${ini ? `<div class="fecha"><small>${ini.toLocaleDateString("es-AR", { weekday: "short" })}</small><b>${ini.getDate()}</b><small>${fHora(ini)}</small></div>`
+            : `<div class="fecha sin"><small>Turno</small><b>#${r.turno_id}</b></div>`}
+      <div style="min-width:0">
+        <h3>${esc(cancha?.nombre || `Turno #${r.turno_id}`)}</h3>
+        <div class="info"><span class="tag ${cls}">${txt}</span>
+          <span>Total <b>${plata(r.precio)}</b></span><span>Seña ${plata(r.sena)}</span>
+          ${r.estado === "CONFIRMADA" ? `<span>En la cancha: <b>${plata(r.saldo_en_el_lugar)}</b></span>` : ""}
+          ${r.puntos_usados ? `<span>Usaste ${r.puntos_usados} pts</span>` : ""}
+          <span>Reserva #${r.id}</span></div>
+      </div>
+      <div class="acts">${acts}</div>
+      ${confirm}
+    </div>`;
+  }
+
+  function renderReservas(rs) {
+    if (!rs.length) {
+      $("reservasList").innerHTML = `<div class="empty"><b>Todavía no reservaste nada</b><button class="linkbtn" data-goto="canchas">Buscá una cancha →</button></div>`;
+      $("reservasList").querySelector("[data-goto]").onclick = () => show("canchas");
+      return;
+    }
+    const vencidaR = (r) => r.estado === "EN_PROCESO" && Date.now() > fecha(r.fecha_creacion).getTime() + MIN_PARA_PAGAR * 60000;
+    const activas = rs.filter(r => ["EN_PROCESO", "CONFIRMADA"].includes(r.estado) && !vencidaR(r));
+    const historial = rs.filter(r => !activas.includes(r));
+    $("reservasList").innerHTML =
+      (activas.length ? `<div class="seccion">Próximos partidos</div>` + activas.map(tarjetaReserva).join("") : "")
+      + (historial.length ? `<div class="seccion">Historial</div>` + historial.map(tarjetaReserva).join("") : "");
+    const byId = Object.fromEntries(rs.map(r => [r.id, r]));
+    $("reservasList").querySelectorAll("[data-pagar]").forEach(b => b.onclick = () => { state.turno = null; abrirPago(byId[b.dataset.pagar]); });
+    $("reservasList").querySelectorAll("[data-cancelar]").forEach(b => b.onclick = () => { state.confirmando = Number(b.dataset.cancelar); renderReservas(rs); });
+    $("reservasList").querySelectorAll("[data-no]").forEach(b => b.onclick = () => { state.confirmando = null; renderReservas(rs); });
+    $("reservasList").querySelectorAll("[data-si]").forEach(b => b.onclick = () => withBusy(b, async () => {
+      try {
+        await api(`/reservas/${b.dataset.si}/cancelar`, { method: "POST" });
+        const pagos = await api(`/reservas/${b.dataset.si}/pagos`);
+        const devuelto = pagos.some(p => p.estado_pago === "REEMBOLSADO");
+        state.confirmando = null;
+        msg("reservasMsg", !pagos.length ? "Reserva cancelada." : devuelto ? "Reserva cancelada. Te devolvimos la seña." : "Reserva cancelada. La seña no se devuelve (faltaban menos de 48 hs).", "ok");
+        loadReservas();
+      } catch (err) { msg("reservasMsg", err.message); }
+    }));
+  }
+
+  // ================= Mi complejo =================
+  function showSub(sub) {
+    state.sub = sub; msg("complejoMsg", "");
+    document.querySelectorAll("#subtabs button").forEach(b => b.setAttribute("aria-current", b.dataset.sub === sub));
+    document.querySelectorAll("[data-subsection]").forEach(s => s.hidden = s.dataset.subsection !== sub);
+    ({ cobros: loadCobros, turnos: loadMisTurnos, finalizar: () => {}, publicar: () => { cargarDatos().then(renderSelects).catch(() => {}); initMapaPick(); } })[sub]();
+  }
+  document.querySelectorAll("#subtabs button").forEach(b => b.onclick = () => showSub(b.dataset.sub));
+
+  async function loadCobros() {
+    try {
+      const [r, liqs] = await Promise.all([api("/mis-cobros"), api("/mis-liquidaciones")]);
+      $("sSaldo").textContent = plata(r.saldo_a_cobrar); $("sConfirmar").textContent = plata(r.a_confirmar);
+      $("sConfirmado").textContent = plata(r.confirmado); $("sLiquidado").textContent = plata(r.liquidado);
+      $("aAlias").value = r.alias_cobro || "";
+      $("misLiqs").innerHTML = liqs.length ? liqs.map(l => `<li><strong>${plata(l.monto)}</strong><span>${fCorta(fecha(l.fecha))} · a ${esc(l.alias_destino)}${l.referencia_externa ? " · " + esc(l.referencia_externa) : ""}</span></li>`).join("")
+        : `<li><span>Todavía no recibiste liquidaciones.</span></li>`;
+    } catch (err) { msg("complejoMsg", err.message); }
+  }
+
+  $("aliasForm").addEventListener("submit", (e) => {
+    e.preventDefault(); const f = e.currentTarget; if (!f.reportValidity()) return;
+    withBusy(f.querySelector("[type=submit]"), async () => {
+      try { await api("/usuarios/me/alias-cobro", { method: "PUT", json: { alias_cobro: $("aAlias").value.trim() } }); msg("complejoMsg", "Guardamos tu CBU/alias.", "ok"); loadCobros(); }
+      catch (err) { msg("complejoMsg", err.message); }
+    });
+  });
+
+  const PAGO_TXT = { APROBADO: "Aprobado", REEMBOLSADO: "Reembolsado", PENDIENTE: "Pendiente", RECHAZADO: "Rechazado" };
+  $("finVer").onclick = (e) => {
+    if (!$("finForm").reportValidity()) return;
+    withBusy(e.currentTarget, async () => {
+      try {
+        const ps = await api(`/reservas/${$("finId").value}/pagos`);
+        $("finPagos").innerHTML = ps.length ? ps.map(p => `<li><strong>${plata(p.monto)} · ${PAGO_TXT[p.estado_pago] || p.estado_pago}</strong><span>${esc(p.medio_pago)} · comisión de la app ${plata(p.comision)} · te corresponde ${plata(p.monto - p.comision)}</span></li>`).join("")
+          : `<li><span>Esta reserva no tiene pagos.</span></li>`;
+        msg("complejoMsg", "");
+      } catch (err) { msg("complejoMsg", err.message); }
+    });
+  };
+
+  $("finForm").addEventListener("submit", (e) => {
+    e.preventDefault(); const f = e.currentTarget; if (!f.reportValidity()) return;
+    withBusy(f.querySelector("[type=submit]"), async () => {
+      try { const r = await api(`/reservas/${$("finId").value}/finalizar`, { method: "POST" }); msg("complejoMsg", `Reserva #${r.id} marcada como jugada. El cliente sumó 10 puntos.`, "ok"); }
+      catch (err) { msg("complejoMsg", err.message); }
+    });
+  });
+
+  function renderSelects() {
+    $("eActividad").innerHTML = state.actividades.length ? state.actividades.map(a => `<option value="${a.id}">${estilo(a.id).emoji} ${esc(a.nombre)}</option>`).join("") : `<option value="">No hay deportes en el catálogo</option>`;
+    const mias = misEspacios(), prev = $("tCancha").value;
+    $("tCancha").innerHTML = mias.length ? mias.map(e => `<option value="${e.id}">${estilo(e.actividad_id).emoji} ${esc(e.nombre)}</option>`).join("") : `<option value="">Primero publicá una cancha</option>`;
+    if (prev && mias.some(e => String(e.id) === prev)) $("tCancha").value = prev;
+    $("misCanchas").innerHTML = mias.length ? mias.map(e => `<li><strong>${estilo(e.actividad_id).emoji} ${esc(e.nombre)}</strong><span>${esc(actName(e.actividad_id))}${e.ubicacion ? " · " + esc(e.ubicacion.direccion) : ""}</span></li>`).join("") : `<li><span>Todavía no publicaste ninguna.</span></li>`;
+  }
+
+  $("espacioForm").addEventListener("submit", (e) => {
+    e.preventDefault(); const f = e.currentTarget; if (!f.reportValidity()) return;
+    if (!$("eActividad").value) return msg("complejoMsg", "Todavía no hay deportes en el catálogo. Pedíselo al administrador.");
+    if (!$("eLat").value || !$("eLon").value) return msg("complejoMsg", "Elegí la dirección de la lista de sugerencias, o marcá la cancha tocando el mapa.");
+    withBusy(f.querySelector("[type=submit]"), async () => {
+      try {
+        const ubi = await api("/ubicaciones", { method: "POST", json: { direccion: $("eDireccion").value.trim(), latitud: Number($("eLat").value), longitud: Number($("eLon").value) } });
+        const esp = await api("/espacios-deportivos", { method: "POST", json: { nombre: $("eNombre").value.trim(), tipo: f.querySelector("input[name=tipo]:checked").value, actividad_id: Number($("eActividad").value), ubicacion_id: ubi.id } });
+        f.reset(); $("eLat").value = ""; $("eLon").value = ""; $("ubiOk").hidden = true;
+        if (pinPick) { pinPick.remove(); pinPick = null; }
+        msg("complejoMsg", `¡${esp.nombre} ya está publicada! Ya aparece en Canchas.`, "ok");
+        await cargarDatos(); renderSelects();
+      } catch (err) { msg("complejoMsg", err.message); }
+    });
+  });
+
+  // --- Turnos del propietario (POST /turnos, GET /turnos, PATCH /turnos/{id}) ---
+  // Los turnos se guardan en UTC sin zona horaria, igual que compara models.py
+  const aUtcSinZona = (d) => d.toISOString().slice(0, 19);
+
+  function horariosACrear() {
+    if (!$("tFecha").value || !$("tHora").value) return [];
+    const dur = Number($("tDur").value), n = Number($("tCant").value);
+    let ini = new Date(`${$("tFecha").value}T${$("tHora").value}`);
+    return Array.from({ length: n }, () => { const fin = new Date(ini.getTime() + dur * 60000), t = { ini, fin }; ini = fin; return t; });
+  }
+  function previewTurnos() {
+    const hs = horariosACrear();
+    $("tPreview").textContent = hs.length ? `Se van a crear ${hs.length} ${hs.length === 1 ? "turno" : "turnos"}: ${hs.map(h => fHora(h.ini)).join(", ")} (termina ${fHora(hs[hs.length - 1].fin)}).` : "";
+  }
+  ["tFecha", "tHora", "tDur", "tCant"].forEach(id => $(id).addEventListener("change", previewTurnos));
+
+  async function loadMisTurnos() {
+    if (!$("tFecha").value) { const d = new Date(Date.now() + 86400000); $("tFecha").value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+    previewTurnos();
+    try {
+      await cargarDatos(); renderSelects();
+      const ids = new Set(misEspacios().map(e => e.id)), ahora = Date.now();
+      const ts = (await api("/turnos")).filter(t => ids.has(t.espacio_deportivo_id) && fecha(t.fecha_hora_inicio) > ahora)
+        .sort((a, b) => fecha(a.fecha_hora_inicio) - fecha(b.fecha_hora_inicio));
+      $("misTurnos").innerHTML = ts.length ? ts.slice(0, 40).map(t => {
+        const ini = fecha(t.fecha_hora_inicio), fin = fecha(t.fecha_hora_fin), e = espacioById(t.espacio_deportivo_id);
+        return `<li style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div>
+            <strong>${esc(cap(fDiaCorto(ini)))} · ${fHora(ini)} a ${fHora(fin)}</strong>
+            <span>${esc(e?.nombre || "")} · ${plata(t.precio)} · turno #${t.id}</span></div>
+            <button class="btn ghost small" data-quitar="${t.id}">Quitar</button></li>`;
+      }).join("") : `<li><span>No tenés turnos libres cargados. Cargá los primeros acá al lado.</span></li>`;
+      $("misTurnos").querySelectorAll("[data-quitar]").forEach(b => b.onclick = () => withBusy(b, async () => {
+        try { await api(`/turnos/${b.dataset.quitar}`, { method: "PATCH", json: { activo: false } }); msg("complejoMsg", "Turno quitado.", "ok"); loadMisTurnos(); }
+        catch (err) { msg("complejoMsg", err.message); }
+      }));
+    } catch (err) { msg("complejoMsg", err.message); }
+  }
+
+  $("turnoForm").addEventListener("submit", (e) => {
+    e.preventDefault(); const f = e.currentTarget; if (!f.reportValidity()) return;
+    if (!$("tCancha").value) return msg("complejoMsg", "Primero publicá una cancha.");
+    withBusy(f.querySelector("[type=submit]"), async () => {
+      let creados = 0;
+      try {
+        for (const h of horariosACrear()) {
+          await api("/turnos", { method: "POST", json: {
+            espacio_deportivo_id: Number($("tCancha").value), fecha_hora_inicio: aUtcSinZona(h.ini), fecha_hora_fin: aUtcSinZona(h.fin),
+            precio: Number($("tPrecio").value), cupo_maximo: 1,
+          }});
+          creados++;
+        }
+        msg("complejoMsg", creados === 1 ? "Turno cargado. Ya se puede reservar." : `Se cargaron ${creados} turnos. Ya se pueden reservar.`, "ok");
+      } catch (err) { msg("complejoMsg", creados ? `Se cargaron ${creados}. Después falló: ${err.message}` : err.message); }
+      loadMisTurnos();
+    });
+  });
+
+  // ================= Catálogo de deportes (admin) =================
+  async function loadDeportes() {
+    $("depLista").innerHTML = `<p class="muted">Cargando…</p>`;
+    try {
+      await cargarDatos();
+      const uso = {}; state.espacios.forEach(e => uso[e.actividad_id] = (uso[e.actividad_id] || 0) + 1);
+      $("depLista").innerHTML = state.actividades.map(a => {
+        const s = estilo(a.id), n = uso[a.id] || 0;
+        return `<div class="dep" data-id="${a.id}">
+          <div class="ico" style="--c:${s.color}22">${s.emoji}</div>
+          <div style="flex:1;min-width:0">
+            <div data-ver><h3>${esc(a.nombre)}</h3><p>${esc(a.descripcion || "Sin descripción")}</p>
+              <div class="acts"><button class="btn ghost small" data-editar>Editar</button>
+                <button class="btn ghost small" data-borrar ${n ? `disabled title="Lo usan ${n} cancha(s)"` : ""}>Borrar</button></div>
+              <div class="uso" style="margin-top:6px">${n ? `Lo usan ${n} cancha${n > 1 ? "s" : ""} · no se puede borrar` : "Ninguna cancha lo usa"}</div></div>
+            <div data-edit hidden>
+              <input data-n value="${esc(a.nombre)}" maxlength="100" aria-label="Nombre">
+              <input data-d value="${esc(a.descripcion || "")}" maxlength="500" placeholder="Descripción" aria-label="Descripción">
+              <div class="acts"><button class="btn small" data-guardar>Guardar</button><button class="btn ghost small" data-cancelar>Cancelar</button></div>
+            </div>
+          </div></div>`;
+      }).join("") || `<div class="empty"><b>El catálogo está vacío</b>Agregá el primer deporte.</div>`;
+      $("depLista").querySelectorAll(".dep").forEach(card => {
+        const id = card.dataset.id, ver = card.querySelector("[data-ver]"), edit = card.querySelector("[data-edit]");
+        card.querySelector("[data-editar]").onclick = () => { ver.hidden = true; edit.hidden = false; edit.querySelector("[data-n]").focus(); };
+        card.querySelector("[data-cancelar]").onclick = () => { ver.hidden = false; edit.hidden = true; };
+        card.querySelector("[data-guardar]").onclick = (e) => withBusy(e.currentTarget, async () => {
+          try {
+            await api(`/actividades/${id}`, { method: "PATCH", json: { nombre: edit.querySelector("[data-n]").value.trim(), descripcion: edit.querySelector("[data-d]").value.trim() } });
+            msg("depMsg", "Cambios guardados.", "ok"); loadDeportes();
+          } catch (err) { msg("depMsg", err.message); }
+        });
+        card.querySelector("[data-borrar]").onclick = (e) => withBusy(e.currentTarget, async () => {
+          try { await api(`/actividades/${id}`, { method: "DELETE" }); msg("depMsg", "Deporte borrado del catálogo.", "ok"); loadDeportes(); }
+          catch (err) { msg("depMsg", err.message); }
+        });
+      });
+    } catch (err) { $("depLista").innerHTML = ""; msg("depMsg", err.message); }
+  }
+
+  $("depForm").addEventListener("submit", (e) => {
+    e.preventDefault(); const f = e.currentTarget; if (!f.reportValidity()) return;
+    withBusy(f.querySelector("[type=submit]"), async () => {
+      try {
+        const a = await api("/actividades", { method: "POST", json: { nombre: $("dNombre").value.trim(), descripcion: $("dDesc").value.trim() || null } });
+        f.reset(); msg("depMsg", `Se agregó ${a.nombre} al catálogo.`, "ok"); loadDeportes();
+      } catch (err) { msg("depMsg", err.message); }
+    });
+  });
+
+  // ================= Liquidaciones (admin) =================
+  async function loadLiquidaciones() {
+    $("liqList").innerHTML = `<p class="muted">Cargando…</p>`;
+    try {
+      const ps = await api("/liquidaciones/pendientes");
+      $("liqList").innerHTML = ps.length ? ps.map(p => `<div class="res" style="grid-template-columns:1fr auto">
+          <div><h3>${esc(p.nombre)}</h3>
+            <div class="info">${p.alias_cobro ? `<span>CBU/alias: <b>${esc(p.alias_cobro)}</b></span>` : `<span class="tag err">No cargó CBU/alias</span>`}</div></div>
+          <div class="acts"><b style="font:900 26px Archivo;color:var(--green)">${plata(p.saldo_a_cobrar)}</b></div>
+          <div class="acts" style="grid-column:1/-1;justify-content:flex-start">
+            <input placeholder="N° de transferencia (opcional)" data-ref="${p.propietario_id}" style="max-width:260px;padding:9px 12px;font-size:13px">
+            <button class="btn small lime" data-liq="${p.propietario_id}">Registrar transferencia</button>
+          </div></div>`).join("")
+        : `<div class="empty"><b>No hay saldos pendientes</b>La plata de un turno se puede liquidar cuando faltan menos de 48 hs (ya no se reembolsa).</div>`;
+      $("liqList").querySelectorAll("[data-liq]").forEach(b => b.onclick = () => withBusy(b, async () => {
+        try {
+          const ref = document.querySelector(`[data-ref="${b.dataset.liq}"]`).value.trim();
+          const l = await api("/liquidaciones", { method: "POST", json: { propietario_id: Number(b.dataset.liq), referencia_externa: ref || null } });
+          msg("liqMsg", `Liquidación registrada: ${plata(l.monto)} a ${l.alias_destino}.`, "ok"); loadLiquidaciones();
+        } catch (err) { msg("liqMsg", err.message); }
+      }));
+    } catch (err) { $("liqList").innerHTML = ""; msg("liqMsg", err.message); }
+  }
+  $("reloadLiq").onclick = loadLiquidaciones;
+
+  // ================= Inicio =================
+  $("saveApi").onclick = () => {
+    const v = $("apiUrl").value.trim().replace(/\/+$/, "");
+    if (v) { API = v; store.set("api_url", v); } else { store.del("api_url"); API = DIRECT_API; }
+    checkApi();
+  };
+  (async () => {
+    await detectApi(); $("apiUrl").value = API; checkApi();
+    if (store.get("token")) enterApp().catch(() => logout());
+  })();
+</script>
+</body>
+</html>

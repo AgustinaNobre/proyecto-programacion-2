@@ -6,12 +6,16 @@ from sqlalchemy.orm import Session
 from auth import get_password_hash, verify_password, create_access_token, get_usuario_actual, get_propietario_actual
 from fastapi.security import OAuth2PasswordRequestForm
 
+import catalogo
 import models
 import schemas
-from database import engine, get_db
+from database import SessionLocal, engine, get_db
 
 
 models.Base.metadata.create_all(bind=engine)
+
+with SessionLocal() as _db:
+    catalogo.cargar_catalogo(_db)
 
 app = FastAPI()
 
@@ -81,59 +85,83 @@ def prueba_propietario(
 ):
     return {"mensaje": "Acceso permitido para propietarios"} '''
 
-@app.post(
-    "/actividades",
-    response_model=schemas.ActividadRespuesta,
-    status_code=201
-)
+def _solo_admin(usuario: models.Usuario):
+    if usuario.tipo_usuario != models.TipoUsuario.SUPERADMIN:
+        raise HTTPException(status_code=403, detail="Solo un administrador puede gestionar el catálogo de deportes")
+
+
+@app.post("/actividades", response_model=schemas.ActividadRespuesta, status_code=201)
 def crear_actividad(
     actividad: schemas.ActividadCrear,
     db: Session = Depends(get_db),
-    usuario_actual: models.Usuario = Depends(get_usuario_actual)
+    usuario_actual: models.Usuario = Depends(get_usuario_actual),
 ):
-    if usuario_actual.tipo_usuario not in (
-        models.TipoUsuario.PROPIETARIO,
-        models.TipoUsuario.SUPERADMIN
-    ):
-        raise HTTPException(
-            status_code=403,
-            detail="No tenés permisos para crear actividades"
-        )
+    _solo_admin(usuario_actual)
 
-    actividad_existente = db.query(models.Actividad).filter(
-        models.Actividad.nombre == actividad.nombre
-    ).first()
+    if catalogo.buscar_por_nombre(db, actividad.nombre):
+        raise HTTPException(status_code=400, detail="Ese deporte ya está en el catálogo")
 
-    if actividad_existente:
-        raise HTTPException(
-            status_code=400,
-            detail="La actividad ya existe"
-        )
-    
-    
     nueva_actividad = models.Actividad(
-        nombre=actividad.nombre,
-        descripcion=actividad.descripcion
+        nombre=" ".join(actividad.nombre.split()),
+        descripcion=actividad.descripcion.strip() if actividad.descripcion else None,
     )
-
     db.add(nueva_actividad)
     db.commit()
     db.refresh(nueva_actividad)
+    return nueva_actividad
 
-    return {
-        "id": nueva_actividad.id,
-        "nombre": nueva_actividad.nombre,
-        "descripcion": nueva_actividad.descripcion
-    }
 
-@app.get(
-    "/actividades",
-    response_model=list[schemas.ActividadRespuesta]
-)
+@app.get("/actividades", response_model=list[schemas.ActividadRespuesta])
 def listar_actividades(db: Session = Depends(get_db)):
-    actividades = db.query(models.Actividad).all()
+    return sorted(db.query(models.Actividad).all(), key=lambda a: catalogo.normalizar(a.nombre))
 
-    return actividades
+
+@app.patch("/actividades/{actividad_id}", response_model=schemas.ActividadRespuesta)
+def actualizar_actividad(
+    actividad_id: int,
+    datos: schemas.ActividadActualizar,
+    db: Session = Depends(get_db),
+    usuario_actual: models.Usuario = Depends(get_usuario_actual),
+):
+    _solo_admin(usuario_actual)
+
+    actividad = db.get(models.Actividad, actividad_id)
+    if actividad is None:
+        raise HTTPException(status_code=404, detail="El deporte no existe")
+
+    if datos.nombre is not None:
+        if catalogo.buscar_por_nombre(db, datos.nombre, excluir_id=actividad_id):
+            raise HTTPException(status_code=400, detail="Ese deporte ya está en el catálogo")
+        actividad.nombre = " ".join(datos.nombre.split())
+
+    if datos.descripcion is not None:
+        actividad.descripcion = datos.descripcion.strip() or None
+
+    db.commit()
+    db.refresh(actividad)
+    return actividad
+
+
+@app.delete("/actividades/{actividad_id}", status_code=204)
+def borrar_actividad(
+    actividad_id: int,
+    db: Session = Depends(get_db),
+    usuario_actual: models.Usuario = Depends(get_usuario_actual),
+):
+    _solo_admin(usuario_actual)
+
+    actividad = db.get(models.Actividad, actividad_id)
+    if actividad is None:
+        raise HTTPException(status_code=404, detail="El deporte no existe")
+
+    if actividad.espacios:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No se puede borrar: lo usan {len(actividad.espacios)} cancha(s)",
+        )
+
+    db.delete(actividad)
+    db.commit()
 
 
 @app.post(
@@ -800,3 +828,50 @@ def ver_precio_turno(
         sena=(total * models.PORCENTAJE_SENA).quantize(Decimal("0.01")),
         detalle=precio.detalle(),
     )
+
+
+@app.get("/espacios-deportivos/{espacio_id}/resenas", response_model=list[schemas.ResenaRespuesta])
+def listar_resenas(espacio_id: int, db: Session = Depends(get_db)):
+    espacio = db.get(models.EspacioDeportivo, espacio_id)
+    if espacio is None:
+        raise HTTPException(status_code=404, detail="La cancha no existe")
+
+    return (
+        db.query(models.Resena)
+        .filter(models.Resena.espacio_deportivo_id == espacio_id)
+        .order_by(models.Resena.fecha.desc())
+        .all()
+    )
+
+
+@app.post("/espacios-deportivos/{espacio_id}/resenas", response_model=schemas.ResenaRespuesta, status_code=201)
+def crear_resena(
+    espacio_id: int,
+    datos: schemas.ResenaCrear,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_usuario_actual),
+):
+    espacio = db.get(models.EspacioDeportivo, espacio_id)
+    if espacio is None:
+        raise HTTPException(status_code=404, detail="La cancha no existe")
+
+    if not espacio.jugo_aca(usuario.id):
+        raise HTTPException(status_code=403, detail="Solo podés opinar sobre canchas en las que jugaste")
+
+    ya_opino = db.query(models.Resena).filter(
+        models.Resena.usuario_id == usuario.id,
+        models.Resena.espacio_deportivo_id == espacio_id,
+    ).first()
+    if ya_opino:
+        raise HTTPException(status_code=400, detail="Ya dejaste una reseña para esta cancha")
+
+    resena = models.Resena(
+        usuario_id=usuario.id,
+        espacio_deportivo_id=espacio_id,
+        puntaje=datos.puntaje,
+        comentario=datos.comentario.strip() if datos.comentario else None,
+    )
+    db.add(resena)
+    db.commit()
+    db.refresh(resena)
+    return resena
