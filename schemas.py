@@ -105,6 +105,9 @@ propietario_id: usuario propietario del espacio.
 actividad_id: actividad que se realiza allí.
 ubicacion_id: ubicación donde se encuentra.'''
 
+class ReservaCrear(BaseModel):
+    turno_id: int = Field(gt=0)
+    usar_puntos: bool = False
 
 class ReservaRespuesta(BaseModel):
     id: int
@@ -128,6 +131,10 @@ class ReservaRespuesta(BaseModel):
         # lo que se le paga al propietario en la cancha
         return self.precio - self.sena
 
+class PrecioDetalle(BaseModel):
+    total: Decimal
+    sena: Decimal
+    detalle: dict
 
 class PagoCrear(BaseModel):
     medio_pago: MedioPago  # TRANSFERENCIA, MP o TARJETA
