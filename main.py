@@ -241,6 +241,210 @@ def listar_espacios_deportivos(
     return espacios
 
 
+@app.post(
+    "/turnos",
+    response_model=schemas.TurnoRespuesta,
+    status_code=201
+)
+def crear_turno(
+    turno: schemas.TurnoCrear,
+    db: Session = Depends(get_db),
+    usuario_actual: models.Usuario = Depends(get_usuario_actual)
+):
+    if usuario_actual.tipo_usuario not in (
+        models.TipoUsuario.PROPIETARIO,
+        models.TipoUsuario.SUPERADMIN
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="No tenés permisos para crear turnos"
+        )
+
+    espacio = db.get(models.EspacioDeportivo, turno.espacio_deportivo_id)
+
+    if espacio is None or not espacio.activa:
+        raise HTTPException(
+            status_code=404,
+            detail="El espacio deportivo no existe o no está activo"
+        )
+
+    if (
+        usuario_actual.tipo_usuario != models.TipoUsuario.SUPERADMIN
+        and espacio.propietario_id != usuario_actual.id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Solo podés crear turnos para tus propios espacios"
+        )
+
+    if turno.fecha_hora_fin <= turno.fecha_hora_inicio:
+        raise HTTPException(
+            status_code=422,
+            detail="La fecha y hora de fin deben ser posteriores al inicio"
+        )
+
+    turno_superpuesto = db.query(models.Turno).filter(
+        models.Turno.espacio_deportivo_id == turno.espacio_deportivo_id,
+        models.Turno.activo == True,
+        models.Turno.fecha_hora_inicio < turno.fecha_hora_fin,
+        models.Turno.fecha_hora_fin > turno.fecha_hora_inicio
+    ).first()
+
+    if turno_superpuesto:
+        raise HTTPException(
+            status_code=400,
+            detail="Ya existe un turno en ese horario para este espacio"
+        )
+
+    nuevo_turno = models.Turno(
+        fecha_hora_inicio=turno.fecha_hora_inicio,
+        fecha_hora_fin=turno.fecha_hora_fin,
+        precio=turno.precio,
+        cupo_maximo=turno.cupo_maximo,
+        activo=True,
+        espacio_deportivo_id=turno.espacio_deportivo_id
+    )
+
+    db.add(nuevo_turno)
+    db.commit()
+    db.refresh(nuevo_turno)
+
+    return nuevo_turno
+
+
+@app.get(
+    "/turnos",
+    response_model=list[schemas.TurnoRespuesta]
+)
+def listar_turnos(db: Session = Depends(get_db)):
+    # Actualizar las reservas que vencieron por falta de pago
+    _vencer_reservas_sin_pago(db)
+    turnos = db.query(models.Turno).join(
+        models.EspacioDeportivo
+    ).filter(
+        models.Turno.activo == True,
+        models.EspacioDeportivo.activa == True
+    ).all()
+
+    turnos_disponibles = [
+        turno for turno in turnos
+        if turno.esta_disponible()
+    ]
+
+    return turnos_disponibles
+
+
+@app.get(
+    "/turnos/{id}",
+    response_model=schemas.TurnoRespuesta
+)
+def obtener_turno(
+    id: int,
+    db: Session = Depends(get_db)
+):
+    turno = db.get(models.Turno, id)
+
+    if turno is None:
+        raise HTTPException(
+            status_code=404,
+            detail="El turno no existe"
+        )
+
+    return turno
+
+
+@app.patch(
+    "/turnos/{id}",
+    response_model=schemas.TurnoRespuesta
+)
+def actualizar_turno(
+    id: int,
+    datos: schemas.TurnoActualizar,
+    db: Session = Depends(get_db),
+    usuario_actual: models.Usuario = Depends(get_usuario_actual)
+):
+    turno = db.get(models.Turno, id)
+
+    if turno is None:
+        raise HTTPException(
+            status_code=404,
+            detail="El turno no existe"
+        )
+
+    espacio = db.get(
+        models.EspacioDeportivo,
+        turno.espacio_deportivo_id
+    )
+
+    if espacio is None:
+        raise HTTPException(
+            status_code=404,
+            detail="El espacio deportivo no existe"
+        )
+
+    if usuario_actual.tipo_usuario not in (
+        models.TipoUsuario.PROPIETARIO,
+        models.TipoUsuario.SUPERADMIN
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="No tenés permisos para modificar turnos"
+        )
+
+    if (
+        usuario_actual.tipo_usuario != models.TipoUsuario.SUPERADMIN
+        and espacio.propietario_id != usuario_actual.id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Solo podés modificar turnos de tus propios espacios"
+        )
+
+    cambios = datos.model_dump(exclude_unset=True)
+
+    fecha_inicio = cambios.get(
+        "fecha_hora_inicio",
+        turno.fecha_hora_inicio
+    )
+    fecha_fin = cambios.get(
+        "fecha_hora_fin",
+        turno.fecha_hora_fin
+    )
+
+    if fecha_fin <= fecha_inicio:
+        raise HTTPException(
+            status_code=422,
+            detail="La fecha y hora de fin deben ser posteriores al inicio"
+        )
+
+    turno_activo = cambios.get("activo", turno.activo)
+
+    if turno_activo:
+        turno_superpuesto = db.query(models.Turno).filter(
+            models.Turno.espacio_deportivo_id == turno.espacio_deportivo_id,
+            models.Turno.id != turno.id,
+            models.Turno.activo == True,
+            models.Turno.fecha_hora_inicio < fecha_fin,
+            models.Turno.fecha_hora_fin > fecha_inicio
+        ).first()
+
+        if turno_superpuesto:
+            raise HTTPException(
+                status_code=400,
+                detail="Ya existe otro turno en ese horario para este espacio"
+            )
+
+    # Aplicar los cambios
+    for campo, valor in cambios.items():
+        setattr(turno, campo, valor)
+
+    db.commit()
+    db.refresh(turno)
+
+    return turno
+
+
+
 def _es_admin(usuario: models.Usuario) -> bool:
     return usuario.tipo_usuario == models.TipoUsuario.SUPERADMIN
 
@@ -321,28 +525,34 @@ def _resumen_cobros(db: Session, propietario: models.Usuario) -> schemas.Resumen
     )
 
 
-@app.post("/turnos/{turno_id}/reservas", response_model=schemas.ReservaRespuesta, status_code=201)
+@app.post("/reservas", response_model=schemas.ReservaRespuesta, status_code=201)
 def reservar_turno(
-    turno_id: int,
-    usar_puntos: bool = False,
+    datos: schemas.ReservaCrear,
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_usuario_actual),
 ):
     _vencer_reservas_sin_pago(db)
 
-    turno = db.query(models.Turno).filter(models.Turno.id == turno_id).with_for_update().first()
+    turno = db.query(models.Turno).filter(
+        models.Turno.id == datos.turno_id
+    ).with_for_update().first()
+
     if turno is None:
         raise HTTPException(status_code=404, detail="El turno no existe")
 
-    precio = models.armar_precio(turno, usar_puntos)
+    precio = models.armar_precio(turno, datos.usar_puntos)
 
     try:
         puntos_usados = 0
-        if usar_puntos:
+        if datos.usar_puntos:
             usuario.canjear_puntos(models.PUNTOS_PARA_DESCUENTO)
             puntos_usados = models.PUNTOS_PARA_DESCUENTO
 
-        reserva = turno.reservar(usuario.id, precio=precio.calcular(), puntos_usados=puntos_usados)
+        reserva = turno.reservar(
+            usuario.id,
+            precio=precio.calcular(),
+            puntos_usados=puntos_usados
+        )
     except ValueError as e:
         _error_de_regla(e)
 
@@ -353,6 +563,7 @@ def reservar_turno(
 
 
 @app.get("/reservas", response_model=list[schemas.ReservaRespuesta])
+@app.get("/reservas/mis-reservas", response_model=list[schemas.ReservaRespuesta])
 def mis_reservas(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_usuario_actual),
@@ -367,6 +578,7 @@ def mis_reservas(
 
 
 @app.post("/reservas/{reserva_id}/cancelar", response_model=schemas.ReservaRespuesta)
+@app.patch("/reservas/{reserva_id}/cancelar", response_model=schemas.ReservaRespuesta)
 def cancelar_reserva(
     reserva_id: int,
     db: Session = Depends(get_db),
@@ -386,6 +598,45 @@ def cancelar_reserva(
     db.refresh(reserva)
     return reserva
 
+@app.patch("/reservas/{reserva_id}/confirmar", response_model=schemas.ReservaRespuesta)
+def confirmar_reserva(
+    reserva_id: int,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_usuario_actual),
+):
+    reserva = _buscar_reserva(db, reserva_id)
+
+    # Cada cliente solo puede confirmar sus propias reservas
+    if reserva.usuario_id != usuario.id and not _es_admin(usuario):
+        raise HTTPException(
+            status_code=403,
+            detail="Solo podés confirmar tus propias reservas"
+        )
+
+    # Verificar que exista un pago aprobado
+    tiene_pago_aprobado = any(
+        pago.estado_pago == models.EstadoPago.APROBADO
+        for pago in reserva.pagos
+    )
+
+    if not tiene_pago_aprobado:
+        raise HTTPException(
+            status_code=400,
+            detail="No podés confirmar una reserva sin un pago aprobado"
+        )
+
+    # Si el pago ya confirmó la reserva, no hacemos nada más
+    if reserva.estado == models.EstadoReserva.CONFIRMADA:
+        return reserva
+
+    try:
+        reserva.confirmar()
+    except ValueError as e:
+        _error_de_regla(e)
+
+    db.commit()
+    db.refresh(reserva)
+    return reserva
 
 @app.post("/reservas/{reserva_id}/finalizar", response_model=schemas.ReservaRespuesta)
 def finalizar_reserva(
@@ -548,4 +799,4 @@ def ver_precio_turno(
         total=total,
         sena=(total * models.PORCENTAJE_SENA).quantize(Decimal("0.01")),
         detalle=precio.detalle(),
-    )f
+    )

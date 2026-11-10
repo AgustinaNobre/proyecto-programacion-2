@@ -5,7 +5,6 @@ from pydantic import BaseModel, EmailStr, ConfigDict, Field, computed_field
 
 from models import EstadoPago, EstadoReserva, MedioPago, PORCENTAJE_SENA
 
-
 class UsuarioCrear(BaseModel):
     nombre: str
     email: EmailStr
@@ -65,6 +64,36 @@ class EspacioDeportivoRespuesta(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+# Datos necesarios para crear un turno
+class TurnoCrear(BaseModel):
+    fecha_hora_inicio: datetime
+    fecha_hora_fin: datetime
+    precio: Decimal = Field(ge=0)
+    cupo_maximo: int = Field(ge=1)
+    espacio_deportivo_id: int
+
+
+# Datos que devuelve la API al consultar un turno
+class TurnoRespuesta(BaseModel):
+    id: int
+    fecha_hora_inicio: datetime
+    fecha_hora_fin: datetime
+    precio: Decimal
+    cupo_maximo: int
+    activo: bool
+    espacio_deportivo_id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# Datos permitidos para modificar un turno
+class TurnoActualizar(BaseModel):
+    fecha_hora_inicio: datetime | None = None
+    fecha_hora_fin: datetime | None = None
+    precio: Decimal | None = Field(default=None, ge=0)
+    cupo_maximo: int | None = Field(default=None, ge=1)
+    activo: bool | None = None
+
 '''id: identificador del espacio, generado por PostgreSQL.
 nombre: nombre de la cancha o del salón.
 tipo: CANCHA o SALON.
@@ -73,6 +102,9 @@ propietario_id: usuario propietario del espacio.
 actividad_id: actividad que se realiza allí.
 ubicacion_id: ubicación donde se encuentra.'''
 
+class ReservaCrear(BaseModel):
+    turno_id: int = Field(gt=0)
+    usar_puntos: bool = False
 
 class ReservaRespuesta(BaseModel):
     id: int
@@ -95,6 +127,10 @@ class ReservaRespuesta(BaseModel):
     def saldo_en_el_lugar(self) -> Decimal:
         return self.precio - self.sena
 
+class PrecioDetalle(BaseModel):
+    total: Decimal
+    sena: Decimal
+    detalle: dict
 
 class PagoCrear(BaseModel):
     medio_pago: MedioPago
