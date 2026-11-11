@@ -1,0 +1,34 @@
+services:
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    volumes:
+      - pgdata_deploy:/var/lib/postgresql
+    environment:
+      POSTGRES_USER: ${DB_USER:-canchas_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Defini DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-canchas_db}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-canchas_user} -d ${DB_NAME:-canchas_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    image: morahanna/api-canchas:latest
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_USER: ${DB_USER:-canchas_user}
+      DB_PASSWORD: ${DB_PASSWORD:?Defini DB_PASSWORD}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-canchas_db}
+      SECRET_KEY: ${SECRET_KEY:?Defini SECRET_KEY}
+
+volumes:
+  pgdata_deploy:

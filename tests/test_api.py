@@ -325,6 +325,3 @@ def test_vencer_reserva_en_proceso():
 
     assert reserva.estado == EstadoReserva.CANCELADA
     notificar.assert_called_once_with("vencida")
-
-
-

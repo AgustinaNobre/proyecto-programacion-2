@@ -1,3 +1,4 @@
+
 name: API Testing CI
 
 on:
@@ -12,7 +13,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        image: postgres:18
         env:
           POSTGRES_DB: test_reserva_canchas
           POSTGRES_USER: postgres
@@ -25,7 +26,6 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-    
     env:
       DB_USER: postgres
       DB_PASSWORD: postgres
@@ -34,7 +34,6 @@ jobs:
       DB_NAME: test_reserva_canchas
       SECRET_KEY: test-secret-key-for-ci-only-32chars
       PYTHONPATH: .
-
 
     steps:
       - name: Descargar el código del repositorio

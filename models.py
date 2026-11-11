@@ -72,7 +72,7 @@ class Usuario(Base):
     También permite gestionar los puntos que los clientes
     acumulan al finalizar sus reservas.
     """
-    
+
     __tablename__ = "usuarios"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -104,7 +104,7 @@ class Usuario(Base):
     )
 
     # Comprueba si el usuario tiene el rol de propietario
-    
+
     def es_propietario(self) -> bool:
         """
         Comprueba si el usuario tiene el rol PROPIETARIO.
@@ -151,7 +151,7 @@ class Usuario(Base):
         self.puntos -= cantidad
 
 
-    
+
 
 class Actividad(Base):
 
@@ -163,7 +163,7 @@ class Actividad(Base):
 
     Ejemplos: fútbol, pádel, básquet o entrenamiento funcional.
     """
-        
+
     __tablename__ = "actividades"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -297,7 +297,7 @@ class EspacioDeportivo(Base):
         back_populates="espacio_deportivo"
     )
 
-    
+
     @property
     def cantidad_resenas(self) -> int:
         """
@@ -396,7 +396,7 @@ class Turno(Base):
             name="horario_turno_valido"
         ),
     )
-    
+
     @property
     def cupos_disponibles(self) -> int:
         """
@@ -1076,14 +1076,14 @@ class Pago(Base):
         "Reserva",
         back_populates="pagos"
     )
-    
+
     __table_args__ = (
         CheckConstraint(
             "monto > 0",
             name="monto_pago_valido"
         ),
     )
-        
+
     fecha_pago = Column(
         DateTime(timezone=True),
         nullable=True
