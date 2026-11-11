@@ -7,7 +7,6 @@ from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, Enum, Float, CheckConstraint, Boolean, ForeignKey, DateTime, Numeric
 from database import Base
 from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo
 
 
 PUNTOS_POR_RESERVA = 10  # puntos que gana el cliente al finalizar una reserva
@@ -19,7 +18,6 @@ PUNTOS_PARA_DESCUENTO = 100  # puntos que se canjean por un descuento
 PORCENTAJE_DESCUENTO_PUNTOS = Decimal("0.10")  # descuento al canjear puntos
 HORAS_ULTIMA_HORA = 2  # si el turno empieza dentro de estas horas, es "de última hora"
 PORCENTAJE_DESCUENTO_ULTIMA_HORA = Decimal("0.15")  # descuento automático de última hora
-ZONA_HORARIA = ZoneInfo("America/Argentina/Buenos_Aires")  # los turnos se guardan en UTC
 
 
 class TipoUsuario(str, enum.Enum):
@@ -76,10 +74,6 @@ class Usuario(Base):
         back_populates="usuario"
     )
 
-    notificaciones = relationship(
-        "Notificacion",
-        back_populates="usuario"
-    )
 
     # Comprueba si el usuario tiene el rol de propietario
     def es_propietario(self) -> bool:
@@ -365,77 +359,6 @@ def armar_precio(turno: "Turno", usar_puntos: bool = False) -> Precio:
     return precio
 
 
-# =====================================================================
-# PATRÓN OBSERVER — cambios de estado de una reserva
-#
-# La reserva (sujeto) avisa cada vez que cambia de estado, sin saber
-# quién la escucha. Cada observador decide qué hacer con el aviso.
-# Para sumar un comportamiento nuevo (ej: mandar un mail) se agrega
-# un observador, sin tocar la clase Reserva.
-#
-# Eventos: "confirmada", "cancelada", "vencida", "finalizada"
-# =====================================================================
-
-class ObservadorReserva:
-    # Interfaz que implementan todos los observadores
-    def actualizar(self, reserva: "Reserva", evento: str):
-        raise NotImplementedError
-
-
-class SumarPuntosAlFinalizar(ObservadorReserva):
-    # Cuando se juega el turno, el cliente suma puntos
-    def actualizar(self, reserva, evento):
-        if evento == "finalizada":
-            reserva.usuario.sumar_puntos(PUNTOS_POR_RESERVA)
-
-
-class DevolverPuntosCanjeados(ObservadorReserva):
-    # Si la reserva vence o se cancela con reembolso, se devuelven los puntos canjeados
-    def actualizar(self, reserva, evento):
-        if reserva.puntos_usados <= 0:
-            return
-        if evento == "vencida" or (evento == "cancelada" and reserva.fue_reembolsada()):
-            reserva.usuario.sumar_puntos(reserva.puntos_usados)
-            reserva.puntos_usados = 0
-
-
-class NotificarCambios(ObservadorReserva):
-    # Deja una notificación al cliente y al propietario de la cancha
-    def actualizar(self, reserva, evento):
-        cancha = reserva.turno.espacio_deportivo
-        cuando = (
-            reserva.turno.fecha_hora_inicio
-            .replace(tzinfo=timezone.utc)
-            .astimezone(ZONA_HORARIA)
-            .strftime("%d/%m a las %H:%M")
-        )
-        cliente = reserva.usuario
-        propietario = cancha.propietario
-
-        mensajes = {
-            "confirmada": [
-                (cliente, f"Tu reserva en {cancha.nombre} el {cuando} está confirmada. "
-                          f"Pagás ${reserva.precio - reserva.monto_sena():.2f} en la cancha."),
-                (propietario, f"{cliente.nombre} reservó {cancha.nombre} para el {cuando}."),
-            ],
-            "cancelada": [
-                (cliente, f"Cancelaste tu reserva en {cancha.nombre} del {cuando}. "
-                          + ("Te devolvimos la seña." if reserva.fue_reembolsada()
-                             else "La seña no se devuelve.")),
-                (propietario, f"{cliente.nombre} canceló su reserva en {cancha.nombre} del {cuando}."),
-            ],
-            "vencida": [
-                (cliente, f"Tu reserva en {cancha.nombre} del {cuando} venció porque no se pagó la seña a tiempo."),
-            ],
-            "finalizada": [
-                (cliente, f"¡Sumaste {PUNTOS_POR_RESERVA} puntos por jugar en {cancha.nombre}!"),
-            ],
-        }
-
-        for destinatario, texto in mensajes.get(evento, []):
-            destinatario.notificaciones.append(Notificacion(mensaje=texto))
-
-
 class Reserva(Base):
     __tablename__ = "reservas"
 
@@ -477,18 +400,6 @@ class Reserva(Base):
         back_populates="reserva"
     )
 
-    # Observadores que se enteran de cada cambio de estado (patrón Observer).
-    # Es una lista de la clase: la comparten todas las reservas.
-    observadores = [
-        SumarPuntosAlFinalizar(),
-        DevolverPuntosCanjeados(),
-        NotificarCambios(),
-    ]
-
-    def notificar(self, evento: str):
-        for observador in self.observadores:
-            observador.actualizar(self, evento)
-
     def monto_sena(self) -> Decimal:
         return (self.precio * PORCENTAJE_SENA).quantize(Decimal("0.01"))
 
@@ -500,7 +411,6 @@ class Reserva(Base):
             raise ValueError("Solo se pueden confirmar reservas en proceso")
 
         self.estado = EstadoReserva.CONFIRMADA
-        self.notificar("confirmada")
 
     def vencer(self):
         # No se pagó la seña a tiempo: se libera el turno
@@ -508,7 +418,10 @@ class Reserva(Base):
             return
 
         self.estado = EstadoReserva.CANCELADA
-        self.notificar("vencida")
+
+        if self.puntos_usados > 0:
+            self.usuario.sumar_puntos(self.puntos_usados)
+            self.puntos_usados = 0
 
     def cancelar(self):
         if self.estado not in (
@@ -529,14 +442,16 @@ class Reserva(Base):
                 except ValueError:
                     pass
 
-        self.notificar("cancelada")
+        if self.puntos_usados > 0 and self.fue_reembolsada():
+            self.usuario.sumar_puntos(self.puntos_usados)
+            self.puntos_usados = 0
 
     def finalizar(self):
         if self.estado != EstadoReserva.CONFIRMADA:
             raise ValueError("Solo se pueden finalizar reservas confirmadas")
 
         self.estado = EstadoReserva.FINALIZADA
-        self.notificar("finalizada")  # SumarPuntosAlFinalizar se encarga de los puntos
+        self.usuario.sumar_puntos(PUNTOS_POR_RESERVA)
 
     def registrar_pago(self, medio_pago, referencia_externa=None) -> "Pago":
         if self.estado == EstadoReserva.CONFIRMADA:
@@ -670,32 +585,4 @@ class Liquidacion(Base):
             "monto > 0",
             name="monto_liquidacion_valido"
         ),
-    )
-
-
-class Notificacion(Base):
-    # Mensajes que generan los observadores de las reservas
-    __tablename__ = "notificaciones"
-
-    id = Column(Integer, primary_key=True, index=True)
-
-    usuario_id = Column(
-        Integer,
-        ForeignKey("usuarios.id"),
-        nullable=False
-    )
-
-    mensaje = Column(String(300), nullable=False)
-
-    leida = Column(Boolean, nullable=False, default=False)
-
-    fecha = Column(
-        DateTime(timezone=True),
-        nullable=False,
-        default=lambda: datetime.now(timezone.utc)
-    )
-
-    usuario = relationship(
-        "Usuario",
-        back_populates="notificaciones"
     )
