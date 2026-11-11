@@ -6,28 +6,30 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import Mock
 
+
 # PRUEBA 1
 
-def test_documentacion_api():
+def test_documentacion_api(client):
     """
     Verifica que FastAPI genere correctamente
-    la documentación OpenAPI.
+    la documentación automática de la API.
     """
-    respuesta = httpx.get("http://127.0.0.1:8000/openapi.json")
+    respuesta = client.get("/openapi.json")
 
     assert respuesta.status_code == 200
     assert "paths" in respuesta.json()
 
 # PRUEBA 2
 
-def test_listar_usuarios():
+def test_listar_usuarios(client):
     """
-    Verifica que el endpoint de usuarios
-    requiera autenticación para acceder.
+    Verifica que un usuario sin autenticación
+    no pueda acceder al listado de usuarios.
     """
-    respuesta = httpx.get("http://127.0.0.1:8000/usuarios")
+    respuesta = client.get("/usuarios")
 
     assert respuesta.status_code in (401, 403)
+
 
 # PRUEBA 3
 
