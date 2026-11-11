@@ -1,6 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
 
+from typing import Literal
+
 from pydantic import BaseModel, EmailStr, ConfigDict, Field, computed_field
 
 from models import EstadoPago, EstadoReserva, MedioPago, PORCENTAJE_SENA
@@ -20,8 +22,13 @@ class UsuarioRespuesta(BaseModel):
     model_config = {"from_attributes": True}
 
 class ActividadCrear(BaseModel):
-    nombre: str
-    descripcion: str | None = None
+    nombre: str = Field(min_length=2, max_length=100)
+    descripcion: str | None = Field(default=None, max_length=500)
+
+
+class ActividadActualizar(BaseModel):
+    nombre: str | None = Field(default=None, min_length=2, max_length=100)
+    descripcion: str | None = Field(default=None, max_length=500)
 
 class ActividadRespuesta(BaseModel):
     id: int
@@ -61,6 +68,9 @@ class EspacioDeportivoRespuesta(BaseModel):
     propietario_id: int
     actividad_id: int
     ubicacion_id: int
+    ubicacion: UbicacionRespuesta
+    promedio_puntaje: float | None = None
+    cantidad_resenas: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -80,6 +90,7 @@ class TurnoRespuesta(BaseModel):
     fecha_hora_fin: datetime
     precio: Decimal
     cupo_maximo: int
+    cupos_disponibles: int
     activo: bool
     espacio_deportivo_id: int
 
@@ -127,10 +138,6 @@ class ReservaRespuesta(BaseModel):
     def saldo_en_el_lugar(self) -> Decimal:
         return self.precio - self.sena
 
-class PrecioDetalle(BaseModel):
-    total: Decimal
-    sena: Decimal
-    detalle: dict
 
 class PagoCrear(BaseModel):
     medio_pago: MedioPago
@@ -190,3 +197,40 @@ class PrecioDetalle(BaseModel):
     total: Decimal
     sena: Decimal
     detalle: list[str]
+
+
+class ResenaCrear(BaseModel):
+    puntaje: int = Field(ge=1, le=5)
+    comentario: str | None = Field(default=None, max_length=500)
+
+
+class Autor(BaseModel):
+    id: int
+    nombre: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ResenaRespuesta(BaseModel):
+    id: int
+    espacio_deportivo_id: int
+    puntaje: int
+    comentario: str | None = None
+    fecha: datetime
+    usuario: Autor
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class NotificacionRespuesta(BaseModel):
+    id: int
+    mensaje: str
+    leida: bool
+    fecha: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CambioRol(BaseModel):
+    email: EmailStr
+    tipo_usuario: Literal["CLIENTE", "PROPIETARIO"]
