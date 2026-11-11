@@ -21,12 +21,16 @@ app = FastAPI()
 
 @app.get("/")
 def inicio():
+    """Verifica que la API esté funcionando."""
     return {"mensaje": "API de reserva de canchas funcionando"}
 
 
 @app.post("/usuarios", response_model=schemas.UsuarioRespuesta)
 def crear_usuario(usuario: schemas.UsuarioCrear, db: Session = Depends(get_db)):
+    """Registra un usuario nuevo (cliente) con la contraseña hasheada.
 
+    Devuelve 400 si el email ya está registrado.
+    """
     usuario_existente = db.query(models.Usuario).filter(
         models.Usuario.email == usuario.email
     ).first()
@@ -36,12 +40,12 @@ def crear_usuario(usuario: schemas.UsuarioCrear, db: Session = Depends(get_db)):
             status_code=400,
             detail="El email ya está registrado"
         )
-    
+
     nuevo_usuario = models.Usuario(
-    nombre=usuario.nombre,
-    email=usuario.email,
-    password=get_password_hash(usuario.password)
-)
+        nombre=usuario.nombre,
+        email=usuario.email,
+        password=get_password_hash(usuario.password)
+    )
 
     db.add(nuevo_usuario)
     db.commit()
@@ -63,9 +67,7 @@ def iniciar_sesion(
         models.Usuario.email == form_data.username
     ).first()
 
-    if not usuario or not verify_password(
-    form_data.password, usuario.password
-):
+    if not usuario or not verify_password(form_data.password, usuario.password):
         raise HTTPException(
             status_code=401,
             detail="Email o contraseña incorrectos"
@@ -82,14 +84,10 @@ def iniciar_sesion(
 def ver_mi_perfil(
     usuario_actual: models.Usuario = Depends(get_usuario_actual)
 ):
+    """Devuelve los datos del usuario logueado."""
     return usuario_actual
 
-''' @app.get("/prueba-propietario")
-def prueba_propietario(
-    propietario: models.Usuario = Depends(get_propietario_actual)
-):
-    return {"mensaje": "Acceso permitido para propietarios"} '''
-
+# Corta con 403 si el usuario no es admin.
 def _solo_admin(usuario: models.Usuario):
     if usuario.tipo_usuario != models.TipoUsuario.SUPERADMIN:
         raise HTTPException(status_code=403, detail="Solo un administrador puede gestionar el catálogo de deportes")
@@ -101,6 +99,11 @@ def crear_actividad(
     db: Session = Depends(get_db),
     usuario_actual: models.Usuario = Depends(get_usuario_actual),
 ):
+    """Agrega un deporte al catálogo. Solo admin.
+
+    Devuelve 403 si no es admin y 400 si el deporte ya existe
+    (sin importar mayúsculas, acentos ni espacios).
+    """
     _solo_admin(usuario_actual)
 
     if catalogo.buscar_por_nombre(db, actividad.nombre):
@@ -118,6 +121,7 @@ def crear_actividad(
 
 @app.get("/actividades", response_model=list[schemas.ActividadRespuesta])
 def listar_actividades(db: Session = Depends(get_db)):
+    """Lista los deportes del catálogo, ordenados alfabéticamente."""
     return sorted(db.query(models.Actividad).all(), key=lambda a: catalogo.normalizar(a.nombre))
 
 
@@ -128,6 +132,11 @@ def actualizar_actividad(
     db: Session = Depends(get_db),
     usuario_actual: models.Usuario = Depends(get_usuario_actual),
 ):
+    """Edita el nombre o la descripción de un deporte del catálogo. Solo admin.
+
+    Devuelve 403 si no es admin, 404 si el deporte no existe
+    y 400 si el nombre nuevo ya lo usa otro deporte.
+    """
     _solo_admin(usuario_actual)
 
     actividad = db.get(models.Actividad, actividad_id)
@@ -153,6 +162,10 @@ def borrar_actividad(
     db: Session = Depends(get_db),
     usuario_actual: models.Usuario = Depends(get_usuario_actual),
 ):
+    """Borra un deporte del catálogo. Solo admin.
+
+    Devuelve 404 si no existe y 400 si hay canchas que lo usan.
+    """
     _solo_admin(usuario_actual)
 
     actividad = db.get(models.Actividad, actividad_id)
@@ -179,6 +192,10 @@ def crear_ubicacion(
     db: Session = Depends(get_db),
     usuario_actual: models.Usuario = Depends(get_usuario_actual)
 ):
+    """Crea una ubicación (dirección con latitud y longitud) para asociarla después a una cancha.
+
+    Solo propietarios y admin. Devuelve 403 si el usuario es cliente.
+    """
     if usuario_actual.tipo_usuario not in (
         models.TipoUsuario.PROPIETARIO,
         models.TipoUsuario.SUPERADMIN
@@ -211,6 +228,11 @@ def crear_espacio_deportivo(
     db: Session = Depends(get_db),
     usuario_actual: models.Usuario = Depends(get_usuario_actual)
 ):
+    """Publica una cancha del propietario logueado en una ubicación ya creada.
+
+    Solo propietarios y admin. Devuelve 404 si el deporte o la ubicación no existen
+    y 422 si el tipo no es CANCHA o SALON.
+    """
     if usuario_actual.tipo_usuario not in (
         models.TipoUsuario.PROPIETARIO,
         models.TipoUsuario.SUPERADMIN
@@ -267,6 +289,7 @@ def crear_espacio_deportivo(
 def listar_espacios_deportivos(
     db: Session = Depends(get_db)
 ):
+    """Lista las canchas activas, con su ubicación y el promedio de reseñas."""
     espacios = db.query(models.EspacioDeportivo).filter(
         models.EspacioDeportivo.activa == True
     ).all()
@@ -284,6 +307,14 @@ def crear_turno(
     db: Session = Depends(get_db),
     usuario_actual: models.Usuario = Depends(get_usuario_actual)
 ):
+    """Crea un turno para una cancha del propietario logueado.
+
+    Con cupo_maximo 1 es un turno de cancha; con más de 1 es una clase o actividad grupal,
+    y el precio pasa a ser por persona.
+
+    Devuelve 403 si la cancha no es suya, 404 si no existe o está inactiva,
+    422 si el fin es anterior al inicio y 400 si se superpone con otro turno.
+    """
     if usuario_actual.tipo_usuario not in (
         models.TipoUsuario.PROPIETARIO,
         models.TipoUsuario.SUPERADMIN
@@ -350,6 +381,10 @@ def crear_turno(
     response_model=list[schemas.TurnoRespuesta]
 )
 def listar_turnos(db: Session = Depends(get_db)):
+    """Lista los turnos disponibles: activos, de canchas activas y con cupo libre.
+
+    Antes vence las reservas que no se pagaron a tiempo, para liberar esos turnos.
+    """
     # Actualizar las reservas que vencieron por falta de pago
     _vencer_reservas_sin_pago(db)
     turnos = db.query(models.Turno).join(
@@ -375,6 +410,7 @@ def obtener_turno(
     id: int,
     db: Session = Depends(get_db)
 ):
+    """Devuelve un turno por su id. Devuelve 404 si no existe."""
     turno = db.get(models.Turno, id)
 
     if turno is None:
@@ -396,6 +432,12 @@ def actualizar_turno(
     db: Session = Depends(get_db),
     usuario_actual: models.Usuario = Depends(get_usuario_actual)
 ):
+    """Edita un turno (horario, precio, cupo o si está activo). Solo el dueño de la cancha o el admin.
+
+    Si se desactiva el turno, se cancelan sus reservas, se devuelven las señas y se avisa a cada cliente.
+    Devuelve 404 si no existe, 403 si no es el dueño, 422 si el fin es anterior al inicio
+    y 400 si el horario se superpone con otro turno o si el cupo nuevo es menor que las reservas hechas.
+    """
     turno = db.get(models.Turno, id)
 
     if turno is None:
@@ -467,7 +509,18 @@ def actualizar_turno(
                 detail="Ya existe otro turno en ese horario para este espacio"
             )
 
-    # Aplicar los cambios
+    ocupados = turno.cupo_maximo - turno.cupos_disponibles
+    if cambios.get("cupo_maximo") is not None and cambios["cupo_maximo"] < ocupados:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ya hay {ocupados} reserva(s) en este turno: el cupo no puede ser menor"
+        )
+
+    # Si se da de baja el turno, se cancelan sus reservas y se devuelven las señas
+    if turno.activo and turno_activo is False:
+        for reserva in turno.reservas:
+            reserva.anular()
+
     for campo, valor in cambios.items():
         setattr(turno, campo, valor)
 
@@ -478,20 +531,24 @@ def actualizar_turno(
 
 
 
+# Indica si el usuario es admin.
 def _es_admin(usuario: models.Usuario) -> bool:
     return usuario.tipo_usuario == models.TipoUsuario.SUPERADMIN
 
 
+# Dependencia para endpoints de admin: devuelve el usuario o corta con 403.
 def _get_admin_actual(usuario: models.Usuario = Depends(get_usuario_actual)) -> models.Usuario:
     if not _es_admin(usuario):
         raise HTTPException(status_code=403, detail="Solo para administradores")
     return usuario
 
 
+# Indica si el usuario es dueño de la cancha de esa reserva.
 def _es_duenio_del_espacio(usuario: models.Usuario, reserva: models.Reserva) -> bool:
     return reserva.turno.espacio_deportivo.propietario_id == usuario.id
 
 
+# Busca una reserva por id o corta con 404.
 def _buscar_reserva(db: Session, reserva_id: int) -> models.Reserva:
     reserva = db.get(models.Reserva, reserva_id)
     if reserva is None:
@@ -499,10 +556,12 @@ def _buscar_reserva(db: Session, reserva_id: int) -> models.Reserva:
     return reserva
 
 
+# Convierte un error de regla de negocio (ValueError) en un error 400.
 def _error_de_regla(e: ValueError):
     raise HTTPException(status_code=400, detail=str(e))
 
 
+# Vence las reservas que no se pagaron dentro del plazo, para liberar el turno.
 def _vencer_reservas_sin_pago(db: Session):
     limite = datetime.now(timezone.utc) - timedelta(minutes=models.MINUTOS_PARA_PAGAR)
 
@@ -517,6 +576,8 @@ def _vencer_reservas_sin_pago(db: Session):
     db.commit()
 
 
+# Resumen de lo que cobra un propietario.
+# La seña la cobra la app, se queda con su comisión y le liquida el resto al propietario.
 def _resumen_cobros(db: Session, propietario: models.Usuario) -> schemas.ResumenCobros:
     ahora = datetime.now(timezone.utc).replace(tzinfo=None)
     limite_reembolso = timedelta(hours=models.HORAS_LIMITE_REEMBOLSO)
@@ -537,6 +598,7 @@ def _resumen_cobros(db: Session, propietario: models.Usuario) -> schemas.Resumen
     confirmado = Decimal("0")
     for pago in pagos:
         parte_propietario = pago.monto - pago.comision
+        # Si todavía se puede reembolsar, la plata no es segura
         if pago.reserva.turno.fecha_hora_inicio - ahora >= limite_reembolso:
             a_confirmar += parte_propietario
         else:
@@ -564,16 +626,23 @@ def reservar_turno(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_usuario_actual),
 ):
+    """Reserva un turno para el usuario logueado.
+
+    Calcula el precio con los descuentos que correspondan (patrón Decorator) y,
+    si se pide, canjea puntos. La reserva queda esperando el pago de la seña.
+    Devuelve 404 si el turno no existe y 400 si no se puede reservar
+    (turno lleno, pasado o puntos insuficientes).
+    """
     _vencer_reservas_sin_pago(db)
 
     turno = db.query(models.Turno).filter(
         models.Turno.id == datos.turno_id
-    ).with_for_update().first()
+    ).with_for_update().first()  # Bloquea el turno para que dos personas no lo reserven a la vez
 
     if turno is None:
         raise HTTPException(status_code=404, detail="El turno no existe")
 
-    precio = models.armar_precio(turno, datos.usar_puntos)
+    precio = models.armar_precio(turno, datos.usar_puntos)  # Patrón Decorator: precio base + descuentos
 
     try:
         puntos_usados = 0
@@ -601,6 +670,7 @@ def mis_reservas(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_usuario_actual),
 ):
+    """Devuelve las reservas del usuario logueado, de la más nueva a la más vieja."""
     _vencer_reservas_sin_pago(db)
     return (
         db.query(models.Reserva)
@@ -617,6 +687,11 @@ def cancelar_reserva(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_usuario_actual),
 ):
+    """Cancela una reserva. Si faltan 48 horas o más para el turno, se reembolsa la seña.
+
+    Solo el dueño de la reserva o el admin. Devuelve 403 si es de otro usuario
+    y 400 si la reserva ya no se puede cancelar.
+    """
     _vencer_reservas_sin_pago(db)
     reserva = _buscar_reserva(db, reserva_id)
     if reserva.usuario_id != usuario.id and not _es_admin(usuario):
@@ -637,6 +712,10 @@ def confirmar_reserva(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_usuario_actual),
 ):
+    """Confirma una reserva que ya tiene un pago aprobado.
+
+    Devuelve 403 si es de otro usuario y 400 si no tiene pago aprobado.
+    """
     reserva = _buscar_reserva(db, reserva_id)
 
     # Cada cliente solo puede confirmar sus propias reservas
@@ -677,6 +756,10 @@ def finalizar_reserva(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_usuario_actual),
 ):
+    """Marca una reserva como jugada y le suma puntos al cliente. Solo el dueño de la cancha o el admin.
+
+    Devuelve 403 si no es el dueño y 400 si la reserva no está confirmada.
+    """
     reserva = _buscar_reserva(db, reserva_id)
     if not _es_duenio_del_espacio(usuario, reserva) and not _es_admin(usuario):
         raise HTTPException(status_code=403, detail="Solo el propietario de la cancha puede finalizar la reserva")
@@ -698,6 +781,11 @@ def pagar_sena(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_usuario_actual),
 ):
+    """Registra el pago de la seña (20% del total). Se aprueba automáticamente y confirma la reserva.
+
+    Devuelve 403 si la reserva es de otro usuario y 400 si ya venció el plazo
+    para pagar o ya estaba pagada.
+    """
     _vencer_reservas_sin_pago(db)
     reserva = _buscar_reserva(db, reserva_id)
     if reserva.usuario_id != usuario.id:
@@ -720,6 +808,7 @@ def ver_pagos_de_reserva(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_usuario_actual),
 ):
+    """Lista los pagos de una reserva. Pueden verlos el cliente, el dueño de la cancha o el admin."""
     reserva = _buscar_reserva(db, reserva_id)
     puede_ver = (
         reserva.usuario_id == usuario.id
@@ -737,6 +826,7 @@ def cargar_alias_cobro(
     db: Session = Depends(get_db),
     propietario: models.Usuario = Depends(get_propietario_actual),
 ):
+    """Guarda el CBU o alias donde el propietario recibe sus cobros y devuelve su resumen."""
     propietario.cuenta_cobro = datos.alias_cobro.strip()
     db.commit()
     return _resumen_cobros(db, propietario)
@@ -747,6 +837,7 @@ def mis_cobros(
     db: Session = Depends(get_db),
     propietario: models.Usuario = Depends(get_propietario_actual),
 ):
+    """Devuelve el resumen de cobros del propietario logueado."""
     return _resumen_cobros(db, propietario)
 
 
@@ -755,6 +846,7 @@ def mis_liquidaciones(
     db: Session = Depends(get_db),
     propietario: models.Usuario = Depends(get_propietario_actual),
 ):
+    """Lista las transferencias que la app ya le hizo al propietario logueado."""
     return (
         db.query(models.Liquidacion)
         .filter(models.Liquidacion.propietario_id == propietario.id)
@@ -768,6 +860,7 @@ def propietarios_a_liquidar(
     db: Session = Depends(get_db),
     admin: models.Usuario = Depends(_get_admin_actual),
 ):
+    """Lista los propietarios con saldo a cobrar. Solo admin."""
     propietarios = db.query(models.Usuario).filter(
         models.Usuario.tipo_usuario == models.TipoUsuario.PROPIETARIO
     ).all()
@@ -789,6 +882,11 @@ def registrar_liquidacion(
     db: Session = Depends(get_db),
     admin: models.Usuario = Depends(_get_admin_actual),
 ):
+    """Registra una transferencia de la app a un propietario. Solo admin.
+
+    Si no se indica monto, liquida todo el saldo. Devuelve 404 si el propietario no existe
+    y 400 si no cargó su alias, no tiene saldo o el monto supera el saldo.
+    """
     propietario = db.get(models.Usuario, datos.propietario_id)
     if propietario is None or propietario.tipo_usuario != models.TipoUsuario.PROPIETARIO:
         raise HTTPException(status_code=404, detail="El propietario no existe")
@@ -810,6 +908,10 @@ def registrar_liquidacion(
         alias_destino=propietario.cuenta_cobro,
         referencia_externa=datos.referencia_externa,
     )
+    monto_texto = f"{monto:,.0f}".replace(",", ".")
+    propietario.notificaciones.append(models.Notificacion(
+        mensaje=f"Te transferimos ${monto_texto} a {propietario.cuenta_cobro}."
+    ))
     db.add(liquidacion)
     db.commit()
     db.refresh(liquidacion)
@@ -822,6 +924,7 @@ def ver_precio_turno(
     usar_puntos: bool = False,
     db: Session = Depends(get_db),
 ):
+    """Muestra el precio final de un turno, la seña a pagar y el detalle de los descuentos aplicados."""
     turno = db.get(models.Turno, turno_id)
     if turno is None:
         raise HTTPException(status_code=404, detail="El turno no existe")
@@ -837,6 +940,7 @@ def ver_precio_turno(
 
 @app.get("/espacios-deportivos/{espacio_id}/resenas", response_model=list[schemas.ResenaRespuesta])
 def listar_resenas(espacio_id: int, db: Session = Depends(get_db)):
+    """Lista las reseñas de una cancha, de la más nueva a la más vieja."""
     espacio = db.get(models.EspacioDeportivo, espacio_id)
     if espacio is None:
         raise HTTPException(status_code=404, detail="La cancha no existe")
@@ -856,6 +960,11 @@ def crear_resena(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(get_usuario_actual),
 ):
+    """Deja una reseña (puntaje de 1 a 5 y comentario opcional) sobre una cancha.
+
+    Solo si el usuario ya jugó ahí (tiene una reserva finalizada).
+    Devuelve 404 si la cancha no existe, 403 si nunca jugó ahí y 400 si ya dejó una reseña.
+    """
     espacio = db.get(models.EspacioDeportivo, espacio_id)
     if espacio is None:
         raise HTTPException(status_code=404, detail="La cancha no existe")
@@ -880,3 +989,90 @@ def crear_resena(
     db.commit()
     db.refresh(resena)
     return resena
+
+
+@app.get("/notificaciones", response_model=list[schemas.NotificacionRespuesta])
+def mis_notificaciones(
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_usuario_actual),
+):
+    """Devuelve las últimas 30 notificaciones del usuario logueado, de la más nueva a la más vieja."""
+    _vencer_reservas_sin_pago(db)
+    return (
+        db.query(models.Notificacion)
+        .filter(models.Notificacion.usuario_id == usuario.id)
+        .order_by(models.Notificacion.fecha.desc(), models.Notificacion.id.desc())
+        .limit(30)
+        .all()
+    )
+
+
+@app.patch("/notificaciones/leer-todas", status_code=204)
+def leer_todas_las_notificaciones(
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_usuario_actual),
+):
+    """Marca como leídas todas las notificaciones del usuario logueado."""
+    db.query(models.Notificacion).filter(
+        models.Notificacion.usuario_id == usuario.id,
+        models.Notificacion.leida == False,
+    ).update({"leida": True})
+    db.commit()
+
+
+@app.get("/usuarios", response_model=list[schemas.UsuarioRespuesta])
+def listar_usuarios(
+    buscar: str | None = None,
+    db: Session = Depends(get_db),
+    admin: models.Usuario = Depends(_get_admin_actual),
+):
+    """Lista los usuarios, filtrando por nombre o email si se indica `buscar`. Solo admin."""
+    consulta = db.query(models.Usuario)
+    if buscar:
+        patron = f"%{buscar.strip()}%"
+        consulta = consulta.filter(
+            models.Usuario.email.ilike(patron) | models.Usuario.nombre.ilike(patron)
+        )
+    return consulta.order_by(models.Usuario.nombre).limit(50).all()
+
+
+@app.patch("/usuarios/rol", response_model=schemas.UsuarioRespuesta)
+def cambiar_rol(
+    datos: schemas.CambioRol,
+    db: Session = Depends(get_db),
+    admin: models.Usuario = Depends(_get_admin_actual),
+):
+    """Convierte a un usuario en propietario, o lo vuelve a cliente. Solo admin.
+
+    El usuario tiene que estar registrado. Devuelve 404 si no existe, 400 si es administrador
+    y 400 si se lo quiere volver cliente pero todavía tiene canchas publicadas.
+    """
+    usuario = db.query(models.Usuario).filter(models.Usuario.email == datos.email).first()
+    if usuario is None:
+        raise HTTPException(status_code=404, detail="No hay ningún usuario registrado con ese email")
+
+    if usuario.tipo_usuario == models.TipoUsuario.SUPERADMIN:
+        raise HTTPException(status_code=400, detail="No se puede cambiar el rol de un administrador")
+
+    nuevo_rol = models.TipoUsuario(datos.tipo_usuario)
+    if usuario.tipo_usuario == nuevo_rol:
+        return usuario
+
+    canchas_activas = [e for e in usuario.espacios if e.activa]
+    if nuevo_rol == models.TipoUsuario.CLIENTE and canchas_activas:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tiene {len(canchas_activas)} cancha(s) publicada(s): primero hay que darlas de baja"
+        )
+
+    usuario.tipo_usuario = nuevo_rol
+    mensaje = (
+        "¡Ya sos propietario! Desde Mi complejo podés publicar tus canchas y cargar turnos."
+        if nuevo_rol == models.TipoUsuario.PROPIETARIO
+        else "Tu cuenta volvió a ser de cliente."
+    )
+    usuario.notificaciones.append(models.Notificacion(mensaje=mensaje))
+
+    db.commit()
+    db.refresh(usuario)
+    return usuario

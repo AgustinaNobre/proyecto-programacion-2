@@ -1,6 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
 
+from typing import Literal
+
 from pydantic import BaseModel, EmailStr, ConfigDict, Field, computed_field
 
 from models import EstadoPago, EstadoReserva, MedioPago, PORCENTAJE_SENA
@@ -88,6 +90,7 @@ class TurnoRespuesta(BaseModel):
     fecha_hora_fin: datetime
     precio: Decimal
     cupo_maximo: int
+    cupos_disponibles: int
     activo: bool
     espacio_deportivo_id: int
 
@@ -217,3 +220,17 @@ class ResenaRespuesta(BaseModel):
     usuario: Autor
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class NotificacionRespuesta(BaseModel):
+    id: int
+    mensaje: str
+    leida: bool
+    fecha: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CambioRol(BaseModel):
+    email: EmailStr
+    tipo_usuario: Literal["CLIENTE", "PROPIETARIO"]

@@ -6,7 +6,6 @@ import models
 
 
 CATALOGO_DEPORTES = [
-    ("Fútbol 5", "Fútbol de 5 jugadores por equipo, en cancha chica de césped sintético."),
     ("Fútbol 7", "Fútbol de 7 jugadores por equipo, en cancha mediana."),
     ("Fútbol 8", "Fútbol de 8 jugadores por equipo, en cancha mediana."),
     ("Fútbol 11", "Fútbol de 11 jugadores por equipo, en cancha reglamentaria."),
@@ -27,6 +26,7 @@ CATALOGO_DEPORTES = [
     ("Hockey", "Hockey sobre césped sintético."),
     ("Rugby", "Rugby de 15 o de 7 jugadores por equipo."),
     ("Natación", "Pileta para nado libre o entrenamiento."),
+    ("Otros", "")
 ]
 
 
