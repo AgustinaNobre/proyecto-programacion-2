@@ -54,6 +54,11 @@ def iniciar_sesion(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
+    """Inicia sesión con email y contraseña y devuelve un token JWT.
+
+    El email va en el campo `username` (así lo pide OAuth2).
+    Devuelve 401 si el email no existe o la contraseña es incorrecta.
+    """
     usuario = db.query(models.Usuario).filter(
         models.Usuario.email == form_data.username
     ).first()
