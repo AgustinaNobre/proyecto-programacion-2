@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, File, HTTPException, Response, UploadFile
 from sqlalchemy.orm import Session
 from auth import get_password_hash, verify_password, create_access_token, get_usuario_actual, get_propietario_actual
 from fastapi.security import OAuth2PasswordRequestForm
@@ -292,7 +292,7 @@ def listar_espacios_deportivos(
     """Lista las canchas activas, con su ubicación y el promedio de reseñas."""
     espacios = db.query(models.EspacioDeportivo).filter(
         models.EspacioDeportivo.activa == True
-    ).all()
+    ).order_by(models.EspacioDeportivo.id).all()
 
     return espacios
 
@@ -986,6 +986,12 @@ def crear_resena(
         comentario=datos.comentario.strip() if datos.comentario else None,
     )
     db.add(resena)
+    db.flush()
+
+    cantidad_resenas = db.query(models.Resena).filter(models.Resena.usuario_id == usuario.id).count()
+    if cantidad_resenas >= 3:
+        usuario.desbloquear_logro("critico")
+
     db.commit()
     db.refresh(resena)
     return resena
@@ -1076,3 +1082,130 @@ def cambiar_rol(
     db.commit()
     db.refresh(usuario)
     return usuario
+
+
+@app.get("/usuarios/me/logros", response_model=list[schemas.LogroRespuesta])
+def mis_logros(usuario: models.Usuario = Depends(get_usuario_actual)):
+    """Lista los logros secretos del usuario logueado.
+
+    Los que todavía no ganó se devuelven ocultos ("???"), para que sean una sorpresa.
+    `veces` indica cuántas veces se ganó (los repetibles, como "En racha", pueden ser más de una).
+    """
+    logros = []
+    for codigo, (emoji, nombre, descripcion, puntos) in models.LOGROS.items():
+        veces = sum(1 for l in usuario.logros if l.codigo == codigo)
+        if veces:
+            logros.append(schemas.LogroRespuesta(
+                codigo=codigo, emoji=emoji, nombre=nombre, descripcion=descripcion,
+                puntos=puntos, ganado=True, veces=veces,
+            ))
+        else:
+            logros.append(schemas.LogroRespuesta(
+                codigo=codigo, emoji="❔", nombre="???", descripcion="Logro secreto. Seguí jugando para descubrirlo.",
+                puntos=puntos, ganado=False,
+            ))
+    return logros
+
+
+# Busca un espacio y verifica que el usuario sea su dueño (o admin)
+def _espacio_propio(db: Session, espacio_id: int, usuario: models.Usuario) -> models.EspacioDeportivo:
+    espacio = db.get(models.EspacioDeportivo, espacio_id)
+    if espacio is None:
+        raise HTTPException(status_code=404, detail="El espacio deportivo no existe")
+    if espacio.propietario_id != usuario.id and not _es_admin(usuario):
+        raise HTTPException(status_code=403, detail="Solo podés modificar tus propios espacios")
+    return espacio
+
+
+@app.patch("/espacios-deportivos/{espacio_id}", response_model=schemas.EspacioDeportivoRespuesta)
+def actualizar_espacio_deportivo(
+    espacio_id: int,
+    datos: schemas.EspacioDeportivoActualizar,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_usuario_actual),
+):
+    """Edita el nombre, el tipo (CANCHA o SALON) o el deporte de un espacio. Solo su dueño o el admin.
+
+    Devuelve 404 si el espacio o el deporte no existen y 403 si el espacio es de otro propietario.
+    """
+    espacio = _espacio_propio(db, espacio_id, usuario)
+
+    if datos.actividad_id is not None and db.get(models.Actividad, datos.actividad_id) is None:
+        raise HTTPException(status_code=404, detail="El deporte no existe")
+
+    if datos.nombre is not None:
+        espacio.nombre = " ".join(datos.nombre.split())
+    if datos.tipo is not None:
+        espacio.tipo = models.TipoEspacio(datos.tipo)
+    if datos.actividad_id is not None:
+        espacio.actividad_id = datos.actividad_id
+
+    db.commit()
+    db.refresh(espacio)
+    return espacio
+
+
+@app.post("/espacios-deportivos/{espacio_id}/fotos", response_model=schemas.FotoRespuesta, status_code=201)
+def subir_foto(
+    espacio_id: int,
+    archivo: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_usuario_actual),
+):
+    """Sube una foto (JPG, PNG o WEBP, hasta 2 MB) a un espacio. Solo su dueño o el admin.
+
+    Cada espacio puede tener hasta 6 fotos; la primera se usa como portada.
+    Devuelve 404 si el espacio no existe, 403 si es de otro propietario y 400 si el archivo
+    no es una imagen válida, pesa demasiado o ya se llegó al máximo de fotos.
+    """
+    espacio = _espacio_propio(db, espacio_id, usuario)
+
+    if len(espacio.fotos) >= models.MAX_FOTOS_POR_ESPACIO:
+        raise HTTPException(status_code=400, detail=f"Cada espacio puede tener hasta {models.MAX_FOTOS_POR_ESPACIO} fotos")
+
+    datos = archivo.file.read(models.MAX_BYTES_FOTO + 1)
+    if len(datos) > models.MAX_BYTES_FOTO:
+        raise HTTPException(status_code=400, detail="La foto no puede pesar más de 2 MB")
+
+    if datos.startswith(b"\xff\xd8\xff"):
+        tipo_contenido = "image/jpeg"
+    elif datos.startswith(b"\x89PNG\r\n\x1a\n"):
+        tipo_contenido = "image/png"
+    elif datos[:4] == b"RIFF" and datos[8:12] == b"WEBP":
+        tipo_contenido = "image/webp"
+    else:
+        raise HTTPException(status_code=400, detail="La foto tiene que ser JPG, PNG o WEBP")
+
+    foto = models.FotoEspacio(tipo_contenido=tipo_contenido, datos=datos)
+    espacio.fotos.append(foto)
+    db.commit()
+    db.refresh(foto)
+    return foto
+
+
+@app.get("/fotos/{foto_id}", response_class=Response)
+def ver_foto(foto_id: int, db: Session = Depends(get_db)):
+    """Devuelve la imagen de una foto. Es pública, para poder mostrarla en la lista de espacios."""
+    foto = db.get(models.FotoEspacio, foto_id)
+    if foto is None:
+        raise HTTPException(status_code=404, detail="La foto no existe")
+    return Response(
+        content=foto.datos,
+        media_type=foto.tipo_contenido,
+        headers={"Cache-Control": "public, max-age=86400", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+@app.delete("/fotos/{foto_id}", status_code=204)
+def borrar_foto(
+    foto_id: int,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(get_usuario_actual),
+):
+    """Borra una foto de un espacio. Solo el dueño del espacio o el admin."""
+    foto = db.get(models.FotoEspacio, foto_id)
+    if foto is None:
+        raise HTTPException(status_code=404, detail="La foto no existe")
+    _espacio_propio(db, foto.espacio_deportivo_id, usuario)
+    db.delete(foto)
+    db.commit()

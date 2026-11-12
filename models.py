@@ -4,8 +4,8 @@ import math
 from abc import ABC, abstractmethod
 from decimal import Decimal
 
-from sqlalchemy.orm import relationship
-from sqlalchemy import Column, Integer, String, Enum, Float, CheckConstraint, Boolean, ForeignKey, DateTime, Numeric, UniqueConstraint
+from sqlalchemy.orm import deferred, relationship
+from sqlalchemy import Column, Integer, String, Enum, Float, CheckConstraint, Boolean, ForeignKey, DateTime, Numeric, UniqueConstraint, LargeBinary
 from database import Base
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -20,7 +20,23 @@ PUNTOS_PARA_DESCUENTO = 100  # puntos que se canjean por un descuento
 PORCENTAJE_DESCUENTO_PUNTOS = Decimal("0.10")  # descuento al canjear puntos
 HORAS_ULTIMA_HORA = 2  # si el turno empieza dentro de estas horas, es "de última hora"
 PORCENTAJE_DESCUENTO_ULTIMA_HORA = Decimal("0.15")  # descuento automático de última hora
-ZONA_HORARIA = ZoneInfo("America/Argentina/Buenos_Aires")  # para mostrar los horarios en las notificaciones
+ZONA_HORARIA = ZoneInfo("America/Argentina/Buenos_Aires")
+MAX_FOTOS_POR_ESPACIO = 6  # cantidad máxima de fotos por espacio deportivo
+MAX_BYTES_FOTO = 2 * 1024 * 1024  # 2 MB por foto
+
+# Logros secretos: código -> (emoji, nombre, cómo se gana, puntos).
+# Se ganan una sola vez, salvo "en_racha", que se puede ganar una vez por semana.
+LOGROS = {
+    "debut": ("🎉", "Debut", "Jugaste tu primer turno.", 5),
+    "madrugador": ("🌅", "Madrugador", "Jugaste un turno que empezaba antes de las 8 de la mañana.", 15),
+    "noctambulo": ("🦉", "Noctámbulo", "Jugaste un turno que empezaba a las 23 o más tarde.", 15),
+    "ultimo_minuto": ("⚡", "Último minuto", "Jugaste un turno que reservaste a menos de 2 horas de empezar.", 10),
+    "explorador": ("🗺️", "Explorador", "Jugaste en 3 espacios distintos.", 20),
+    "multideporte": ("🤸", "Multideporte", "Jugaste 3 deportes distintos.", 20),
+    "en_racha": ("🔥", "En racha", "Jugaste esta semana y también la anterior.", 5),
+    "constante": ("📅", "Constante", "Jugaste 4 semanas seguidas.", 30),
+    "critico": ("✍️", "Crítico", "Dejaste 3 reseñas.", 10),
+}  # para mostrar los horarios en las notificaciones
 
 
 
@@ -103,6 +119,11 @@ class Usuario(Base):
         back_populates="usuario"
     )
 
+    logros = relationship(
+        "Logro",
+        back_populates="usuario"
+    )
+
     # Comprueba si el usuario tiene el rol de propietario
 
     def es_propietario(self) -> bool:
@@ -129,6 +150,29 @@ class Usuario(Base):
             raise ValueError("La cantidad de puntos debe ser positiva")
 
         self.puntos = (self.puntos or 0) + cantidad
+
+
+    def desbloquear_logro(self, codigo: str, periodo: str = "") -> bool:
+        """
+        Otorga un logro secreto: suma sus puntos y avisa al usuario con una notificación.
+
+        Args:
+        codigo (str): Clave del logro en LOGROS.
+        periodo (str): Para los logros repetibles, la semana en que se ganó (por ejemplo "2026-W46").
+
+        Returns:
+        bool: True si lo ganó ahora; False si ya lo tenía.
+        """
+        if any(l.codigo == codigo and l.periodo == periodo for l in self.logros):
+            return False
+
+        emoji, nombre, _, puntos = LOGROS[codigo]
+        self.logros.append(Logro(codigo=codigo, periodo=periodo, puntos=puntos))
+        self.sumar_puntos(puntos)
+        self.notificaciones.append(
+            Notificacion(mensaje=f"{emoji} ¡Logro desbloqueado: {nombre}! +{puntos} puntos.")
+        )
+        return True
 
 
     def canjear_puntos(self, cantidad: int):
@@ -291,6 +335,12 @@ class EspacioDeportivo(Base):
     turnos = relationship(
         "Turno",
         back_populates="espacio_deportivo"
+    )
+    fotos = relationship(
+        "FotoEspacio",
+        back_populates="espacio_deportivo",
+        order_by="FotoEspacio.id",
+        cascade="all, delete-orphan"
     )
     resenas = relationship(
         "Resena",
@@ -652,6 +702,7 @@ def armar_precio(turno: "Turno", usar_puntos: bool = False) -> Precio:
 #   reserva.cancelar()  ->  reserva.notificar("cancelada")
 #                              -> AvisoAlCliente.actualizar(...)
 #                              -> AvisoAlPropietario.actualizar(...)
+#                              -> ObservadorLogros.actualizar(...)
 # =====================================================================
 
 class ObservadorReserva(ABC):
@@ -746,6 +797,58 @@ class AvisoAlPropietario(ObservadorReserva):
         propietario.notificaciones.append(Notificacion(mensaje=mensaje))
 
 
+class ObservadorLogros(ObservadorReserva):
+    """
+    Otorga logros secretos cuando el cliente termina de jugar un turno.
+
+    Es un observador más de la reserva: se sumó a la lista sin tocar
+    ningún método de Reserva. Solo reacciona al evento "finalizada",
+    así nadie gana puntos reservando y cancelando.
+    """
+
+    def actualizar(self, reserva: "Reserva", evento: str):
+        if evento != "finalizada":
+            return
+
+        usuario = reserva.usuario
+        jugadas = [r for r in usuario.reservas if r.estado == EstadoReserva.FINALIZADA]
+        inicio = reserva.turno.fecha_hora_inicio.replace(tzinfo=timezone.utc).astimezone(ZONA_HORARIA)
+
+        usuario.desbloquear_logro("debut")
+
+        if inicio.hour < 8:
+            usuario.desbloquear_logro("madrugador")
+
+        if inicio.hour >= 23:
+            usuario.desbloquear_logro("noctambulo")
+
+        creada = reserva.fecha_creacion
+        if creada.tzinfo is not None:
+            creada = creada.astimezone(timezone.utc).replace(tzinfo=None)
+        if reserva.turno.fecha_hora_inicio - creada < timedelta(hours=HORAS_ULTIMA_HORA):
+            usuario.desbloquear_logro("ultimo_minuto")
+
+        if len({r.turno.espacio_deportivo_id for r in jugadas}) >= 3:
+            usuario.desbloquear_logro("explorador")
+
+        if len({r.turno.espacio_deportivo.actividad_id for r in jugadas}) >= 3:
+            usuario.desbloquear_logro("multideporte")
+
+        # Semanas jugadas, identificadas por el lunes de cada una (en horario de Argentina)
+        lunes = set()
+        for r in jugadas:
+            dia = r.turno.fecha_hora_inicio.replace(tzinfo=timezone.utc).astimezone(ZONA_HORARIA).date()
+            lunes.add(dia - timedelta(days=dia.weekday()))
+
+        esta_semana = inicio.date() - timedelta(days=inicio.weekday())
+        if esta_semana - timedelta(weeks=1) in lunes:
+            anio, semana, _ = esta_semana.isocalendar()
+            usuario.desbloquear_logro("en_racha", periodo=f"{anio}-W{semana:02d}")
+
+        if all(esta_semana - timedelta(weeks=k) in lunes for k in range(4)):
+            usuario.desbloquear_logro("constante")
+
+
 class Reserva(Base):
 
     """
@@ -801,7 +904,7 @@ class Reserva(Base):
         back_populates="reserva"
     )
 
-    observadores = [AvisoAlCliente(), AvisoAlPropietario()]
+    observadores = [AvisoAlCliente(), AvisoAlPropietario(), ObservadorLogros()]
 
     def notificar(self, evento: str):
         """
@@ -1285,4 +1388,77 @@ class Notificacion(Base):
     usuario = relationship(
         "Usuario",
         back_populates="notificaciones"
+    )
+
+
+class Logro(Base):
+    """
+    Registra un logro secreto ganado por un usuario.
+
+    La restricción única impide que un mismo logro se otorgue dos veces
+    (o dos veces en la misma semana, en el caso de los repetibles).
+    """
+    __tablename__ = "logros"
+    __table_args__ = (
+        UniqueConstraint("usuario_id", "codigo", "periodo", name="logro_unico"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    usuario_id = Column(
+        Integer,
+        ForeignKey("usuarios.id"),
+        nullable=False
+    )
+
+    codigo = Column(String(30), nullable=False)
+
+    periodo = Column(String(10), nullable=False, default="")
+
+    puntos = Column(Integer, nullable=False)
+
+    fecha = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+    usuario = relationship(
+        "Usuario",
+        back_populates="logros"
+    )
+
+
+class FotoEspacio(Base):
+    """
+    Representa una foto de un espacio deportivo.
+
+    La imagen se guarda dentro de la base de datos para que no se pierda
+    al reiniciar o volver a desplegar el contenedor. La columna con los
+    bytes es "deferred": solo se lee cuando se pide la foto, no cada vez
+    que se listan los espacios.
+    """
+    __tablename__ = "fotos_espacios"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    espacio_deportivo_id = Column(
+        Integer,
+        ForeignKey("espacios_deportivos.id"),
+        nullable=False
+    )
+
+    tipo_contenido = Column(String(30), nullable=False)
+
+    datos = deferred(Column(LargeBinary, nullable=False))
+
+    fecha = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+    espacio_deportivo = relationship(
+        "EspacioDeportivo",
+        back_populates="fotos"
     )

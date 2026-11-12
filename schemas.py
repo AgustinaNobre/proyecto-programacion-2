@@ -60,6 +60,23 @@ class EspacioDeportivoCrear(BaseModel):
     ubicacion_id: int
 
 
+class EspacioDeportivoActualizar(BaseModel):
+    nombre: str | None = Field(None, min_length=1, max_length=100)
+    tipo: Literal["CANCHA", "SALON"] | None = None
+    actividad_id: int | None = None
+
+
+class FotoRespuesta(BaseModel):
+    id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @computed_field
+    @property
+    def url(self) -> str:
+        return f"/fotos/{self.id}"
+
+
 class EspacioDeportivoRespuesta(BaseModel):
     id: int
     nombre: str
@@ -71,6 +88,7 @@ class EspacioDeportivoRespuesta(BaseModel):
     ubicacion: UbicacionRespuesta
     promedio_puntaje: float | None = None
     cantidad_resenas: int = 0
+    fotos: list[FotoRespuesta] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -234,3 +252,13 @@ class NotificacionRespuesta(BaseModel):
 class CambioRol(BaseModel):
     email: EmailStr
     tipo_usuario: Literal["CLIENTE", "PROPIETARIO"]
+
+
+class LogroRespuesta(BaseModel):
+    codigo: str
+    emoji: str
+    nombre: str
+    descripcion: str
+    puntos: int
+    ganado: bool
+    veces: int = 0
