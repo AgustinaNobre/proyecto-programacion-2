@@ -52,6 +52,14 @@
   .msg.error { background: var(--error-soft); color: var(--error); }
   .msg.ok { background: var(--green-soft); color: var(--green-2); }
   .msg.warn { background: var(--warn-soft); color: var(--warn); }
+  .prop-nota { display: flex; gap: 14px; align-items: flex-start; background: var(--surface); border: 1.5px dashed var(--green); border-radius: var(--radius); padding: 16px 18px; margin-top: 16px; }
+  .prop-nota .ico { font-size: 28px; line-height: 1; }
+  .prop-nota h3 { margin: 0 0 4px; font-size: 16px; }
+  .prop-nota p { margin: 0; font-size: 14px; color: var(--muted); }
+  .prop-nota .mail { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .prop-nota code { font: 700 14px Inter, sans-serif; color: var(--ink); background: var(--green-soft); padding: 5px 10px; border-radius: 8px; user-select: all; overflow-wrap: anywhere; }
+  .welcome .prop-linea { margin-top: 8px; font-size: 14px; opacity: .85; }
+  .welcome .prop-linea b { color: var(--lime); font-weight: 700; user-select: all; }
   .hint { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; }
   .muted { color: var(--muted); }
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -103,6 +111,18 @@
   .who { line-height: 1.2; } .who small { opacity: .65; }
   .pts { background: rgba(200,240,74,.15); color: var(--lime); border-radius: 999px; padding: 4px 10px; font-weight: 700; font-size: 12px; white-space: nowrap; }
   .user button { background: rgba(255,255,255,.1); color: #fff; border: 0; border-radius: 10px; padding: 8px 11px; font-weight: 600; font-size: 12px; cursor: pointer; }
+  .campana { position: relative; }
+  .user #notifBtn { position: relative; font-size: 16px; line-height: 1; padding: 8px 10px; }
+  .badge { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--lime); color: var(--ink); font: 800 11px/18px Inter, sans-serif; text-align: center; }
+  .notif-panel { position: absolute; right: -8px; top: calc(100% + 12px); width: 360px; background: var(--surface); color: var(--ink); border-radius: 16px; box-shadow: 0 18px 50px rgba(0,0,0,.28); overflow: hidden; z-index: 1100; }
+  .notif-panel h4 { margin: 0; padding: 14px 16px; border-bottom: 1px solid var(--line); font: 800 15px Archivo, sans-serif; }
+  .notif-list { max-height: 400px; overflow-y: auto; }
+  .notif { padding: 12px 16px 12px 28px; border-bottom: 1px solid var(--line); font-size: 13.5px; line-height: 1.45; position: relative; }
+  .notif:last-child { border-bottom: 0; }
+  .notif.nueva { background: var(--green-soft); }
+  .notif.nueva::before { content: ""; position: absolute; left: 12px; top: 18px; width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+  .notif small { display: block; color: var(--muted); margin-top: 4px; font-size: 12px; }
+  .notif-vacio { padding: 32px 16px; text-align: center; color: var(--muted); font-size: 14px; }
 
   .wrap { max-width: 1140px; margin: 0 auto; padding: 28px 16px 72px; }
   .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -141,6 +161,20 @@
   .art::before { content: ""; position: absolute; inset: 9px; border: 1.5px solid var(--chalk); border-radius: 4px; background: linear-gradient(var(--chalk), var(--chalk)) center / 1.5px 100% no-repeat; }
   .art::after { content: ""; position: absolute; width: 38px; height: 38px; left: 50%; top: 50%; transform: translate(-50%,-50%); border: 1.5px solid var(--chalk); border-radius: 50%; }
   .art span { position: relative; z-index: 1; filter: drop-shadow(0 2px 3px rgba(0,0,0,.25)); }
+  .art.foto { background-size: cover; background-position: center; }
+  .art.foto::before, .art.foto::after, .art.foto span { display: none; }
+  .galeria { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; margin: -8px 0 22px; padding-bottom: 6px; }
+  .galeria a { flex: 0 0 auto; scroll-snap-align: start; border-radius: 14px; overflow: hidden; border: 1.5px solid var(--line); background: #e6e2d6; }
+  .galeria img { display: block; height: 220px; width: auto; max-width: 80vw; object-fit: cover; }
+  .fotos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin-top: 14px; }
+  .thumb { position: relative; aspect-ratio: 4 / 3; border-radius: 12px; overflow: hidden; background: #e6e2d6; border: 1.5px solid var(--line); }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb button { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(16,32,26,.75); color: #fff; font-size: 14px; cursor: pointer; }
+  .thumb .portada { position: absolute; left: 6px; bottom: 6px; background: var(--lime); color: var(--ink); font: 800 11px Inter, sans-serif; border-radius: 8px; padding: 2px 7px; }
+  .thumb.add { display: grid; place-items: center; text-align: center; border-style: dashed; color: var(--green); font-weight: 700; font-size: 13px; cursor: pointer; background: var(--bg); padding: 8px; }
+  .thumb.add:hover { border-color: var(--green); }
+  .esp-form { display: grid; grid-template-columns: 2fr 1fr 1.3fr auto; gap: 10px; align-items: end; }
+  .esp-form .field { margin: 0; }
   .cancha .body { padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .cancha h3 { margin: 0; font-size: 18px; font-weight: 800; }
   .tags { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -237,6 +271,19 @@
   .subtabs { display: flex; gap: 6px; margin-bottom: 22px; overflow-x: auto; background: #e7e2d5; padding: 4px; border-radius: 14px; width: fit-content; max-width: 100%; }
   .subtabs button { background: none; border: 0; padding: 9px 14px; border-radius: 10px; font-weight: 700; font-size: 14px; color: var(--muted); cursor: pointer; white-space: nowrap; }
   .subtabs button[aria-current="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+  .logros-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .logros-head h3 { margin: 0; }
+  .logros { display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 12px; margin-top: 16px; }
+  .logro { border: 1.5px solid var(--line); border-radius: 14px; padding: 16px 12px; text-align: center; background: var(--bg); position: relative; }
+  .logro .em { font-size: 34px; line-height: 1; display: block; margin-bottom: 8px; }
+  .logro b { display: block; font: 800 15px Archivo, sans-serif; }
+  .logro p { margin: 4px 0 10px; font-size: 12.5px; color: var(--muted); line-height: 1.35; }
+  .logro .lpts { font: 800 12px Inter, sans-serif; color: var(--green); }
+  .logro.ganado { background: var(--green-soft); border-color: var(--green); }
+  .logro.oculto { border-style: dashed; }
+  .logro.oculto .em { filter: grayscale(1); opacity: .55; }
+  .logro.oculto .lpts { color: var(--muted); }
+  .logro .veces { position: absolute; top: 8px; right: 8px; background: var(--ink); color: var(--lime); font: 800 11px Inter, sans-serif; border-radius: 9px; padding: 2px 7px; }
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 18px; }
   .stat { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius); padding: 16px 18px; }
   .stat span { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px; }
@@ -265,6 +312,12 @@
 
   /* ---------- Catálogo (admin) ---------- */
   .cat { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .usr { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .usr:last-child { border-bottom: 0; }
+  .usr .avatar { width: 38px; height: 38px; font-size: 15px; }
+  .usr .datos { flex: 1; min-width: 0; }
+  .usr .datos strong { display: block; }
+  .usr .datos span { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
   .dep { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; }
   .dep .ico { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; font-size: 22px; flex: none; background: var(--c); }
   .dep h3 { margin: 0; font-size: 16px; font-weight: 800; }
@@ -278,7 +331,7 @@
   .perfil .avatar { width: 76px; height: 76px; font-size: 32px; }
   .perfil h2 { margin: 0; font-size: 28px; font-weight: 900; }
   .puntos { background: var(--ink); color: #fff; border-radius: var(--radius); padding: 22px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-  .puntos b { font: 900 44px Archivo, sans-serif; color: var(--lime); line-height: 1; }
+  .puntos #pfPuntos { font: 900 44px Archivo, sans-serif; color: var(--lime); line-height: 1; }
   .barra { height: 8px; background: rgba(255,255,255,.12); border-radius: 99px; overflow: hidden; margin-top: 10px; width: 220px; max-width: 100%; }
   .barra i { display: block; height: 100%; background: var(--lime); border-radius: 99px; }
 
@@ -304,6 +357,11 @@
     .bar { flex-wrap: wrap; gap: 10px; }
     nav { order: 3; width: 100%; overflow-x: auto; }
     .who, .pts { display: none; }
+    #rolForm .row { grid-template-columns: 1fr; }
+    .esp-form { grid-template-columns: 1fr 1fr; } .esp-form .field:first-child { grid-column: 1 / -1; }
+    .galeria img { height: 180px; }
+    .usr { flex-wrap: wrap; } .usr .btn { margin-left: 50px; }
+    .notif-panel { position: fixed; left: 16px; right: 16px; top: 64px; width: auto; }
     .res { grid-template-columns: 64px 1fr; }
     .res .acts { grid-column: 1 / -1; justify-content: flex-start; }
     .medios { grid-template-columns: 1fr 1fr 1fr; }
@@ -364,11 +422,19 @@
         <button data-view="canchas">Canchas</button>
         <button data-view="reservas">Mis reservas</button>
         <button data-view="complejo" data-role="owner">Mi complejo</button>
+        <button data-view="usuarios" data-role="admin">Usuarios</button>
         <button data-view="deportes" data-role="admin">Deportes</button>
         <button data-view="liquidaciones" data-role="admin">Liquidaciones</button>
         <button data-view="perfil">Perfil</button>
       </nav>
       <div class="user">
+        <div class="campana" id="campana" hidden>
+          <button id="notifBtn" aria-label="Notificaciones" aria-expanded="false">🔔<span class="badge" id="notifBadge" hidden>0</span></button>
+          <div class="notif-panel" id="notifPanel" hidden>
+            <h4>Notificaciones</h4>
+            <div class="notif-list" id="notifList"></div>
+          </div>
+        </div>
         <span class="pts" id="uPts">0 pts</span>
         <div class="avatar" id="uAvatar">#</div>
         <div class="who"><strong id="uNombre"></strong><br><small id="uRol"></small></div>
@@ -385,6 +451,7 @@
         <div>
           <h2>Hola, <span id="hola"></span> 👋<br><em>¿Dónde jugamos hoy?</em></h2>
           <p id="canchasCount">Cargando canchas…</p>
+          <p class="prop-linea soloCliente" hidden>¿Tenés un complejo? Escribinos a <b>propietarios@canchasapp.com.ar</b> y publicá tus canchas.</p>
         </div>
         <button class="btn lime" id="cercaMio">📍 Ver las más cercanas</button>
       </div>
@@ -405,6 +472,7 @@
         <div class="tags" id="fTags"></div>
         <p class="dir" id="fDir"></p>
       </div>
+      <div class="galeria" id="fGaleria" hidden></div>
       <div id="canchaMsg"></div>
       <div class="grid2">
         <div>
@@ -518,6 +586,7 @@
         <button data-sub="cobros" aria-current="true">💰 Cobros</button>
         <button data-sub="turnos" data-turnos-api>🗓️ Turnos</button>
         <button data-sub="finalizar">✅ Marcar como jugada</button>
+        <button data-sub="espacios">🏟️ Mis espacios</button>
         <button data-sub="publicar">➕ Publicar cancha</button>
       </div>
       <div id="complejoMsg"></div>
@@ -555,11 +624,15 @@
               <div class="field"><label for="tCant">Cantidad de turnos</label>
                 <select id="tCant"><option value="1">1</option><option value="3">3 seguidos</option><option value="5" selected>5 seguidos</option><option value="8">8 seguidos</option></select></div>
             </div>
-            <div class="field"><label for="tPrecio">Precio de cada turno</label><input id="tPrecio" type="number" min="0" step="500" value="25000" required></div>
+            <div class="row">
+              <div class="field"><label for="tCupo">Lugares por turno</label><input id="tCupo" type="number" min="1" max="200" step="1" value="1" required></div>
+              <div class="field"><label for="tPrecio" id="tPrecioLabel">Precio de cada turno</label><input id="tPrecio" type="number" min="0" step="500" value="25000" required></div>
+            </div>
+            <p class="hint" style="margin:-6px 0 12px">1 lugar = alquiler de cancha. Más de 1 = clase o actividad grupal (yoga, funcional…): cada persona reserva su lugar y el precio es por persona.</p>
             <p class="hint" id="tPreview" style="margin:-4px 0 12px"></p>
             <button class="btn full" type="submit">Cargar turnos</button>
           </form>
-          <div class="panel"><h3>Turnos libres</h3><p class="hint" style="margin:-8px 0 10px">Los reservados dejan de aparecer acá.</p><ul class="list" id="misTurnos"></ul></div>
+          <div class="panel"><h3>Turnos con lugar</h3><p class="hint" style="margin:-8px 0 10px">Los que se llenan dejan de aparecer acá.</p><ul class="list" id="misTurnos"></ul></div>
         </div>
       </div>
 
@@ -576,6 +649,11 @@
         </div>
       </div>
 
+      <div data-subsection="espacios" hidden>
+        <p class="hint" style="margin:-8px 0 14px">Editá tus espacios y sumales fotos: hasta 6 por espacio, y la primera es la portada.</p>
+        <div id="misEspacios"></div>
+      </div>
+
       <div data-subsection="publicar" hidden>
         <div class="grid2">
           <form class="panel" id="espacioForm" novalidate>
@@ -584,6 +662,7 @@
             <div class="field"><label>Tipo de espacio</label>
               <div class="seg"><label><input type="radio" name="tipo" value="CANCHA" checked>Cancha</label><label><input type="radio" name="tipo" value="SALON">Salón</label></div></div>
             <div class="field"><label for="eActividad">Deporte</label><select id="eActividad" required></select></div>
+            <div class="field"><label for="eFotos">Fotos <span class="muted" style="font-weight:500">(opcional, hasta 6)</span></label><input id="eFotos" type="file" accept="image/*" multiple></div>
             <div class="field ac">
               <label for="eDireccion">Dirección</label>
               <input id="eDireccion" maxlength="200" placeholder="Empezá a escribir: Av. Libertador 1200…" autocomplete="off" required
@@ -621,6 +700,26 @@
       <div class="cat" id="depLista"></div>
     </section>
 
+    <!-- ===== Usuarios (admin) ===== -->
+    <section data-section="usuarios" hidden>
+      <div class="head"><div><h2>Usuarios</h2><p>Habilitá a un usuario como propietario para que pueda publicar canchas.</p></div></div>
+      <div id="usrMsg"></div>
+      <form class="panel" id="rolForm" novalidate style="margin-bottom:18px">
+        <h3>Asignar rol</h3>
+        <div class="row" style="grid-template-columns:2fr 1fr auto;align-items:end">
+          <div class="field" style="margin:0"><label for="rolEmail">Email del usuario</label><input id="rolEmail" type="email" placeholder="complejo@gmail.com" required></div>
+          <div class="field" style="margin:0"><label for="rolTipo">Rol</label>
+            <select id="rolTipo"><option value="PROPIETARIO">Propietario</option><option value="CLIENTE">Cliente</option></select></div>
+          <button class="btn" type="submit">Guardar</button>
+        </div>
+        <p class="hint">La persona tiene que estar registrada en la app. Le va a llegar una notificación con el cambio.</p>
+      </form>
+      <div class="panel">
+        <div class="field"><label for="usrBuscar">Buscar por nombre o email</label><input id="usrBuscar" type="search" placeholder="Buscar…"></div>
+        <div id="usrLista"></div>
+      </div>
+    </section>
+
     <!-- ===== Liquidaciones (admin) ===== -->
     <section data-section="liquidaciones" hidden>
       <div class="head"><div><h2>Liquidaciones</h2><p>Propietarios a los que la app les debe plata.</p></div>
@@ -642,10 +741,20 @@
         <div><span style="opacity:.7;font-size:13px">Tus puntos</span><br><b id="pfPuntos">0</b>
           <div class="barra"><i id="pfBarra" style="width:0%"></i></div>
           <p class="hint" style="color:rgba(255,255,255,.7)" id="pfFalta"></p></div>
-        <div style="max-width:320px;font-size:14px;opacity:.85">Sumás <b style="color:var(--lime)">10 puntos</b> por cada partido jugado. Con <b style="color:var(--lime)">100 puntos</b> tenés un 10% de descuento en tu próxima reserva.</div>
+        <div style="max-width:320px;font-size:14px;opacity:.85">Sumás <b style="color:var(--lime)">10 puntos</b> por cada partido jugado, y más con los logros secretos. Con <b style="color:var(--lime)">100 puntos</b> tenés un 10% de descuento en tu próxima reserva.</div>
       </div>
-      <div class="msg warn" id="clienteNote" hidden style="margin-top:16px">
-        Tu cuenta es de <strong>cliente</strong>. Para publicar canchas hace falta ser propietario (por ahora el rol se cambia en la base de datos).
+      <div class="panel" style="margin-top:16px">
+        <div class="logros-head"><h3>Logros secretos</h3><span class="tag lime" id="lgCount"></span></div>
+        <p class="hint" style="margin:6px 0 0">Hay premios escondidos que te dan puntos extra. Se desbloquean jugando… ¿cuáles vas a descubrir?</p>
+        <div class="logros" id="logros"></div>
+      </div>
+      <div class="prop-nota soloCliente" hidden>
+        <span class="ico" aria-hidden="true">🏟️</span>
+        <div>
+          <h3>¿Querés publicar tus canchas?</h3>
+          <p>Tu cuenta es de cliente. Para ser propietario, mandá un mail a esta dirección desde <b id="pnEmail"></b> (el email con el que te registraste), contando el nombre de tu complejo. Te habilitamos y vas a ver la pestaña Mi complejo.</p>
+          <div class="mail"><code id="pnMail">propietarios@canchasapp.com.ar</code><button class="btn ghost small" type="button" id="pnCopiar">Copiar email</button></div>
+        </div>
       </div>
     </section>
   </div>
@@ -707,8 +816,9 @@
     return fallback;
   }
 
-  async function api(path, { method = "GET", json, form, auth = true, silent404 = false } = {}) {
+  async function api(path, { method = "GET", json, form, archivo, auth = true, silent404 = false } = {}) {
     const headers = {}; let body;
+    if (archivo) { body = new FormData(); body.append("archivo", archivo, "foto.jpg"); }
     if (json) { headers["Content-Type"] = "application/json"; body = JSON.stringify(json); }
     if (form) { headers["Content-Type"] = "application/x-www-form-urlencoded"; body = new URLSearchParams(form); }
     const token = store.get("token");
@@ -764,7 +874,8 @@
   });
 
   function logout(reason) {
-    store.del("token"); state.user = null; clearInterval(state.timerId);
+    store.del("token"); state.user = null; clearInterval(state.timerId); clearInterval(state.notifId);
+    state.notifs = []; state.nuevas = undefined; $("notifPanel").hidden = true; $("campana").hidden = true;
     $("appView").hidden = true; $("authView").hidden = false; setTab(true);
     if (reason) msg("authMsg", reason);
   }
@@ -781,7 +892,8 @@
     document.querySelectorAll("#nav button").forEach(b => b.setAttribute("aria-current", b.dataset.view === navView));
     document.querySelectorAll("[data-section]").forEach(s => s.hidden = s.dataset.section !== view);
     window.scrollTo(0, 0);
-    ({ canchas: loadCanchas, reservas: loadReservas, complejo: () => showSub(state.sub), deportes: loadDeportes, liquidaciones: loadLiquidaciones, perfil: refreshUser })[view]?.();
+    ({ canchas: loadCanchas, reservas: loadReservas, complejo: () => showSub(state.sub), deportes: loadDeportes, usuarios: loadUsuarios, liquidaciones: loadLiquidaciones, perfil: () => { refreshUser(); loadLogros(); } })[view]?.();
+    cargarNotificaciones();
   }
   document.querySelectorAll("#nav button").forEach(b => b.onclick = () => show(b.dataset.view));
   document.querySelectorAll("[data-goto]").forEach(b => b.onclick = () => show(b.dataset.goto));
@@ -789,6 +901,10 @@
   async function refreshUser() {
     try {
       const u = await api("/usuarios/me"); state.user = u;
+      document.querySelectorAll(".soloCliente").forEach(el => el.hidden = isOwner() || isAdmin());
+      $("pnEmail").textContent = u.email;
+      document.querySelectorAll('[data-role="owner"]').forEach(el => el.hidden = !isOwner());
+      document.querySelectorAll('[data-role="admin"]').forEach(el => el.hidden = !isAdmin());
       const ini = (u.nombre[0] || "#").toUpperCase(), pts = u.puntos ?? 0;
       $("uAvatar").textContent = ini; $("pfAvatar").textContent = ini;
       $("uNombre").textContent = u.nombre; $("uRol").textContent = ROLES[u.tipo_usuario] || u.tipo_usuario;
@@ -808,14 +924,55 @@
     await refreshUser();
     if (!state.user) throw new Error("No se pudo cargar el usuario");
     $("authView").hidden = true; $("appView").hidden = false;
-    $("clienteNote").hidden = isOwner() || isAdmin();
-    document.querySelectorAll('[data-role="owner"]').forEach(el => el.hidden = !isOwner());
-    document.querySelectorAll('[data-role="admin"]').forEach(el => el.hidden = !isAdmin());
     // ¿El backend tiene GET /turnos? Si no (backend viejo), se pide el turno por número.
     try { const t = await api("/turnos"); state.turnosApi = Array.isArray(t); } catch { state.turnosApi = false; }
     document.querySelectorAll("[data-turnos-api]").forEach(el => el.hidden = !state.turnosApi);
     show("canchas");
+    clearInterval(state.notifId); state.notifId = setInterval(cargarNotificaciones, 20000);
   }
+
+  // ================= Notificaciones =================
+  const hace = (d) => {
+    const min = Math.round((Date.now() - d) / 60000);
+    if (min < 1) return "Recién";
+    if (min < 60) return `Hace ${min} min`;
+    if (min < 24 * 60) return `Hace ${Math.round(min / 60)} h`;
+    return fDiaCorto(d);
+  };
+
+  async function cargarNotificaciones() {
+    if (!state.user) return;
+    try { state.notifs = await api("/notificaciones"); $("campana").hidden = false; }
+    catch (err) { if (err.status === 404) $("campana").hidden = true; return; }
+    const nuevas = state.notifs.filter(n => !n.leida).length;
+    if (nuevas > (state.nuevas ?? nuevas)) refreshUser();  // puede haber cambiado el rol o los puntos
+    state.nuevas = nuevas;
+    $("notifBadge").hidden = nuevas === 0; $("notifBadge").textContent = nuevas > 9 ? "9+" : nuevas;
+    if (!$("notifPanel").hidden) renderNotificaciones();
+  }
+
+  function renderNotificaciones() {
+    $("notifList").innerHTML = state.notifs?.length
+      ? state.notifs.map(n => `<div class="notif ${n.leida ? "" : "nueva"}">${esc(n.mensaje)}<small>${hace(fecha(n.fecha))}</small></div>`).join("")
+      : `<div class="notif-vacio">Todavía no tenés notificaciones.<br>Te avisamos acá cuando pase algo con tus reservas.</div>`;
+  }
+
+  $("notifBtn").onclick = async (e) => {
+    e.stopPropagation();
+    const abrir = $("notifPanel").hidden;
+    $("notifPanel").hidden = !abrir; $("notifBtn").setAttribute("aria-expanded", abrir);
+    if (!abrir) return;
+    renderNotificaciones();
+    if (state.notifs?.some(n => !n.leida)) {
+      try {
+        await api("/notificaciones/leer-todas", { method: "PATCH" });
+        state.notifs.forEach(n => n.leida = true); $("notifBadge").hidden = true; state.nuevas = 0;
+      } catch {}
+    }
+  };
+  document.addEventListener("click", (e) => {
+    if (!$("campana").contains(e.target)) { $("notifPanel").hidden = true; $("notifBtn").setAttribute("aria-expanded", false); }
+  });
 
   // ================= Mapa (Leaflet + OpenStreetMap) =================
   const CENTRO = [-34.6037, -58.4416];
@@ -1007,7 +1164,7 @@
     $("canchasGrid").innerHTML = n ? lista.map(e => {
       const s = estilo(e.actividad_id);
       return `<button class="cancha" data-id="${e.id}">
-        <div class="art" style="--c:${s.color}"><span>${s.emoji}</span></div>
+        <div class="art${e.fotos?.length ? " foto" : ""}" style="--c:${s.color}${e.fotos?.length ? `;background-image:url('${fotoUrl(e.fotos[0])}')` : ""}"><span>${s.emoji}</span></div>
         <div class="body">
           <h3>${esc(e.nombre)}</h3>
           <div class="tags"><span class="tag">${esc(actName(e.actividad_id))}</span><span class="tag alt">${e.tipo === "SALON" ? "Salón" : "Cancha"}</span>
@@ -1034,6 +1191,8 @@
     $("fTags").innerHTML = `<span class="tag lime">${esc(actName(e.actividad_id))}</span><span class="tag">${e.tipo === "SALON" ? "Salón" : "Cancha"}</span>`
       + (state.yo && isFinite(e.dist) ? `<span class="tag">${fKm(e.dist)}</span>` : "");
     $("fDir").textContent = e.ubicacion ? `📍 ${e.ubicacion.direccion}` : "";
+    $("fGaleria").hidden = !e.fotos?.length;
+    $("fGaleria").innerHTML = (e.fotos || []).map((f, i) => `<a href="${fotoUrl(f)}" target="_blank" rel="noopener"><img src="${fotoUrl(f)}" alt="Foto ${i + 1} de ${esc(e.nombre)}" loading="lazy"></a>`).join("");
     msg("canchaMsg", ""); $("turnoId").value = ""; refreshUser();
     $("conGrilla").hidden = !state.turnosApi; $("sinGrilla").hidden = state.turnosApi;
     mostrarResumen(null);
@@ -1060,6 +1219,8 @@
     }
   }
 
+  const lugares = (t) => t.cupos_disponibles === 1 ? "Queda 1 lugar" : `Quedan ${t.cupos_disponibles} de ${t.cupo_maximo}`;
+
   function renderDias() {
     const dias = [];
     state.turnos.forEach(t => { const d = fecha(t.fecha_hora_inicio); if (!dias.some(x => claveDia(x) === claveDia(d))) dias.push(d); });
@@ -1068,7 +1229,7 @@
     $("dias").innerHTML = dias.map(d => `<button class="chip" data-d="${claveDia(d)}" aria-pressed="${claveDia(d) === state.dia}">${esc(cap(fDiaCorto(d)))}</button>`).join("");
     $("dias").querySelectorAll(".chip").forEach(c => c.onclick = () => { state.dia = c.dataset.d; state.turno = null; mostrarResumen(null); renderDias(); });
     const delDia = state.turnos.filter(t => claveDia(fecha(t.fecha_hora_inicio)) === state.dia);
-    $("slots").innerHTML = delDia.map(t => `<button class="slot" data-id="${t.id}" aria-pressed="${state.turno?.id === t.id}">${fHora(fecha(t.fecha_hora_inicio))}<small>${plata(t.precio)}</small></button>`).join("");
+    $("slots").innerHTML = delDia.map(t => `<button class="slot" data-id="${t.id}" aria-pressed="${state.turno?.id === t.id}">${fHora(fecha(t.fecha_hora_inicio))}<small>${plata(t.precio)}</small>${t.cupo_maximo > 1 ? `<small>${lugares(t)}</small>` : ""}</button>`).join("");
     $("slots").querySelectorAll(".slot").forEach(b => b.onclick = () => {
       state.turno = state.turnos.find(t => t.id === Number(b.dataset.id)); renderDias(); verPrecio().catch(err => msg("canchaMsg", err.message));
     });
@@ -1095,6 +1256,7 @@
     const t = state.turno;
     $("cuando").innerHTML = t.fecha_hora_inicio
       ? `<div><dt>Día</dt><dd>${esc(cap(fDia(fecha(t.fecha_hora_inicio))))}</dd></div><div><dt>Horario</dt><dd>${fHora(fecha(t.fecha_hora_inicio))} a ${fHora(fecha(t.fecha_hora_fin))}</dd></div>`
+        + (t.cupo_maximo > 1 ? `<div><dt>Lugares</dt><dd>${lugares(t)} · precio por persona</dd></div>` : "")
       : `<div><dt>Turno</dt><dd>#${t.id}</dd></div>`;
     $("detalle").innerHTML = p.detalle.map((l, i) => {
       const [txt, val = ""] = l.split(/:\s*(?=[-+]?\$)/);
@@ -1240,7 +1402,7 @@
     state.sub = sub; msg("complejoMsg", "");
     document.querySelectorAll("#subtabs button").forEach(b => b.setAttribute("aria-current", b.dataset.sub === sub));
     document.querySelectorAll("[data-subsection]").forEach(s => s.hidden = s.dataset.subsection !== sub);
-    ({ cobros: loadCobros, turnos: loadMisTurnos, finalizar: () => {}, publicar: () => { cargarDatos().then(renderSelects).catch(() => {}); initMapaPick(); } })[sub]();
+    ({ cobros: loadCobros, turnos: loadMisTurnos, finalizar: () => {}, espacios: loadMisEspacios, publicar: () => { cargarDatos().then(renderSelects).catch(() => {}); initMapaPick(); } })[sub]();
   }
   document.querySelectorAll("#subtabs button").forEach(b => b.onclick = () => showSub(b.dataset.sub));
 
@@ -1300,13 +1462,79 @@
       try {
         const ubi = await api("/ubicaciones", { method: "POST", json: { direccion: $("eDireccion").value.trim(), latitud: Number($("eLat").value), longitud: Number($("eLon").value) } });
         const esp = await api("/espacios-deportivos", { method: "POST", json: { nombre: $("eNombre").value.trim(), tipo: f.querySelector("input[name=tipo]:checked").value, actividad_id: Number($("eActividad").value), ubicacion_id: ubi.id } });
+        const fallidas = await subirFotos(esp.id, $("eFotos").files);
         f.reset(); $("eLat").value = ""; $("eLon").value = ""; $("ubiOk").hidden = true;
         if (pinPick) { pinPick.remove(); pinPick = null; }
-        msg("complejoMsg", `¡${esp.nombre} ya está publicada! Ya aparece en Canchas.`, "ok");
+        msg("complejoMsg", `¡${esp.nombre} ya está publicada! Ya aparece en Canchas.` + (fallidas ? ` (${fallidas} foto(s) no se pudieron subir; probá de nuevo desde Mis espacios).` : ""), fallidas ? "warn" : "ok");
         await cargarDatos(); renderSelects();
       } catch (err) { msg("complejoMsg", err.message); }
     });
   });
+
+  // --- Fotos y edición de espacios ---
+  const fotoUrl = (f) => API + f.url;
+
+  // Achica la foto en el navegador (máx. 1600 px, JPEG) para que pese poco antes de subirla
+  async function achicarFoto(archivo) {
+    const img = await createImageBitmap(archivo);
+    const escala = Math.min(1, 1600 / Math.max(img.width, img.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.width * escala); canvas.height = Math.round(img.height * escala);
+    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+    return new Promise(ok => canvas.toBlob(ok, "image/jpeg", 0.82));
+  }
+
+  async function subirFotos(espacioId, archivos) {
+    let fallidas = 0;
+    for (const archivo of archivos) {
+      try { await api(`/espacios-deportivos/${espacioId}/fotos`, { method: "POST", archivo: await achicarFoto(archivo) }); }
+      catch (err) { fallidas++; if (err.message.includes("hasta")) { msg("complejoMsg", err.message, "warn"); break; } }
+    }
+    return fallidas;
+  }
+
+  async function loadMisEspacios() {
+    try { await cargarDatos(); } catch (err) { return msg("complejoMsg", err.message); }
+    const mios = misEspacios();
+    const opciones = (sel) => state.actividades.map(a => `<option value="${a.id}" ${a.id === sel ? "selected" : ""}>${esc(a.nombre)}</option>`).join("");
+    $("misEspacios").innerHTML = mios.length ? mios.map(e => `
+      <div class="panel" data-esp="${e.id}">
+        <form class="esp-form" novalidate>
+          <div class="field"><label>Nombre</label><input name="nombre" maxlength="100" value="${esc(e.nombre)}" required></div>
+          <div class="field"><label>Tipo</label><select name="tipo"><option value="CANCHA">Cancha</option><option value="SALON" ${e.tipo === "SALON" ? "selected" : ""}>Salón</option></select></div>
+          <div class="field"><label>Deporte</label><select name="actividad_id">${opciones(e.actividad_id)}</select></div>
+          <button class="btn" type="submit">Guardar</button>
+        </form>
+        <div class="fotos-grid">
+          ${e.fotos.map((f, i) => `<div class="thumb"><img src="${fotoUrl(f)}" alt="Foto ${i + 1}" loading="lazy">${i === 0 ? `<span class="portada">Portada</span>` : ""}<button type="button" data-borrar-foto="${f.id}" aria-label="Borrar foto">✕</button></div>`).join("")}
+          ${e.fotos.length < 6 ? `<label class="thumb add">＋ Agregar fotos<input type="file" accept="image/*" multiple hidden></label>` : ""}
+        </div>
+        <p class="hint" style="margin:8px 0 0">${e.fotos.length} de 6 fotos${e.ubicacion ? ` · 📍 ${esc(e.ubicacion.direccion)}` : ""}</p>
+      </div>`).join("") : `<div class="empty"><b>Todavía no publicaste espacios</b>Publicá el primero desde la pestaña "Publicar cancha".</div>`;
+
+    $("misEspacios").querySelectorAll("[data-esp]").forEach(panel => {
+      const id = Number(panel.dataset.esp), form = panel.querySelector("form");
+      form.onsubmit = (ev) => {
+        ev.preventDefault(); if (!form.reportValidity()) return;
+        withBusy(form.querySelector("[type=submit]"), async () => {
+          try {
+            await api(`/espacios-deportivos/${id}`, { method: "PATCH", json: { nombre: form.nombre.value.trim(), tipo: form.tipo.value, actividad_id: Number(form.actividad_id.value) } });
+            msg("complejoMsg", "Cambios guardados.", "ok"); loadMisEspacios();
+          } catch (err) { msg("complejoMsg", err.message); }
+        });
+      };
+      panel.querySelector("input[type=file]")?.addEventListener("change", async (ev) => {
+        const add = ev.target.closest(".thumb"); add.style.pointerEvents = "none"; add.firstChild.textContent = "Subiendo…";
+        const fallidas = await subirFotos(id, ev.target.files);
+        if (fallidas) msg("complejoMsg", `${fallidas} foto(s) no se pudieron subir.`, "warn"); else msg("complejoMsg", "Fotos agregadas.", "ok");
+        loadMisEspacios();
+      });
+      panel.querySelectorAll("[data-borrar-foto]").forEach(b => b.onclick = () => withBusy(b, async () => {
+        try { await api(`/fotos/${b.dataset.borrarFoto}`, { method: "DELETE" }); loadMisEspacios(); }
+        catch (err) { msg("complejoMsg", err.message); }
+      }));
+    });
+  }
 
   // --- Turnos del propietario (POST /turnos, GET /turnos, PATCH /turnos/{id}) ---
   // Los turnos se guardan en UTC sin zona horaria, igual que compara models.py
@@ -1323,6 +1551,7 @@
     $("tPreview").textContent = hs.length ? `Se van a crear ${hs.length} ${hs.length === 1 ? "turno" : "turnos"}: ${hs.map(h => fHora(h.ini)).join(", ")} (termina ${fHora(hs[hs.length - 1].fin)}).` : "";
   }
   ["tFecha", "tHora", "tDur", "tCant"].forEach(id => $(id).addEventListener("change", previewTurnos));
+  $("tCupo").addEventListener("input", () => { $("tPrecioLabel").textContent = Number($("tCupo").value) > 1 ? "Precio por persona" : "Precio de cada turno"; });
 
   async function loadMisTurnos() {
     if (!$("tFecha").value) { const d = new Date(Date.now() + 86400000); $("tFecha").value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
@@ -1336,13 +1565,24 @@
         const ini = fecha(t.fecha_hora_inicio), fin = fecha(t.fecha_hora_fin), e = espacioById(t.espacio_deportivo_id);
         return `<li style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div>
             <strong>${esc(cap(fDiaCorto(ini)))} · ${fHora(ini)} a ${fHora(fin)}</strong>
-            <span>${esc(e?.nombre || "")} · ${plata(t.precio)} · turno #${t.id}</span></div>
-            <button class="btn ghost small" data-quitar="${t.id}">Quitar</button></li>`;
+            <span>${esc(e?.nombre || "")} · ${plata(t.precio)}${t.cupo_maximo > 1 ? ` por persona · ${t.cupo_maximo - t.cupos_disponibles} de ${t.cupo_maximo} anotados` : ""} · turno #${t.id}</span></div>
+            <button class="btn ghost small" data-quitar="${t.id}" data-anotados="${t.cupo_maximo - t.cupos_disponibles}">Quitar</button></li>`;
       }).join("") : `<li><span>No tenés turnos libres cargados. Cargá los primeros acá al lado.</span></li>`;
-      $("misTurnos").querySelectorAll("[data-quitar]").forEach(b => b.onclick = () => withBusy(b, async () => {
-        try { await api(`/turnos/${b.dataset.quitar}`, { method: "PATCH", json: { activo: false } }); msg("complejoMsg", "Turno quitado.", "ok"); loadMisTurnos(); }
-        catch (err) { msg("complejoMsg", err.message); }
-      }));
+      $("misTurnos").querySelectorAll("[data-quitar]").forEach(b => b.onclick = () => {
+        const anotados = Number(b.dataset.anotados);
+        if (anotados > 0 && !b.dataset.seguro) {
+          b.dataset.seguro = "1"; b.classList.replace("ghost", "danger");
+          b.textContent = anotados === 1 ? "¿Seguro? Hay 1 anotado" : `¿Seguro? Hay ${anotados} anotados`;
+          return;
+        }
+        withBusy(b, async () => {
+          try {
+            await api(`/turnos/${b.dataset.quitar}`, { method: "PATCH", json: { activo: false } });
+            msg("complejoMsg", anotados ? "Turno quitado. Se cancelaron las reservas, se devolvieron las señas y avisamos a cada uno." : "Turno quitado.", "ok");
+            loadMisTurnos();
+          } catch (err) { msg("complejoMsg", err.message); }
+        });
+      });
     } catch (err) { msg("complejoMsg", err.message); }
   }
 
@@ -1355,7 +1595,7 @@
         for (const h of horariosACrear()) {
           await api("/turnos", { method: "POST", json: {
             espacio_deportivo_id: Number($("tCancha").value), fecha_hora_inicio: aUtcSinZona(h.ini), fecha_hora_fin: aUtcSinZona(h.fin),
-            precio: Number($("tPrecio").value), cupo_maximo: 1,
+            precio: Number($("tPrecio").value), cupo_maximo: Number($("tCupo").value) || 1,
           }});
           creados++;
         }
@@ -1364,6 +1604,66 @@
       loadMisTurnos();
     });
   });
+
+  $("pnCopiar").onclick = () => {
+    const mail = $("pnMail").textContent;
+    navigator.clipboard.writeText(mail)
+      .then(() => { $("pnCopiar").textContent = "¡Copiado!"; setTimeout(() => $("pnCopiar").textContent = "Copiar email", 2000); })
+      .catch(() => { const r = document.createRange(); r.selectNodeContents($("pnMail")); getSelection().removeAllRanges(); getSelection().addRange(r); });
+  };
+
+  // ================= Logros secretos =================
+  async function loadLogros() {
+    let logros;
+    try { logros = await api("/usuarios/me/logros"); }
+    catch { $("logros").closest(".panel").hidden = true; return; }
+    $("logros").closest(".panel").hidden = false;
+    const ganados = logros.filter(l => l.ganado).length;
+    $("lgCount").textContent = `${ganados} de ${logros.length}`;
+    $("logros").innerHTML = logros.map(l => `
+      <div class="logro ${l.ganado ? "ganado" : "oculto"}">
+        ${l.veces > 1 ? `<span class="veces">×${l.veces}</span>` : ""}
+        <span class="em">${l.emoji}</span><b>${esc(l.nombre)}</b>
+        <p>${esc(l.descripcion)}</p><span class="lpts">${l.ganado ? "✓ " : ""}+${l.puntos} pts</span>
+      </div>`).join("");
+  }
+
+  // ================= Usuarios (admin) =================
+  async function loadUsuarios() {
+    $("usrLista").innerHTML = `<p class="muted">Cargando…</p>`;
+    try {
+      const q = $("usrBuscar").value.trim();
+      const us = await api("/usuarios" + (q ? `?buscar=${encodeURIComponent(q)}` : ""));
+      $("usrLista").innerHTML = us.length ? us.map(u => {
+        const rol = u.tipo_usuario, tag = { PROPIETARIO: "lime", SUPERADMIN: "info" }[rol] || "alt";
+        const accion = rol === "SUPERADMIN" ? ""
+          : `<button class="btn ghost small" data-email="${esc(u.email)}" data-rol="${rol === "PROPIETARIO" ? "CLIENTE" : "PROPIETARIO"}">${rol === "PROPIETARIO" ? "Volver a cliente" : "Hacer propietario"}</button>`;
+        return `<div class="usr"><div class="avatar">${esc((u.nombre[0] || "#").toUpperCase())}</div>
+          <div class="datos"><strong>${esc(u.nombre)}</strong><span>${esc(u.email)}</span></div>
+          <span class="tag ${tag}">${ROLES[rol] || rol}</span>${accion}</div>`;
+      }).join("") : `<p class="muted">No se encontraron usuarios.</p>`;
+      $("usrLista").querySelectorAll("[data-email]").forEach(b => b.onclick = () => withBusy(b, () => cambiarRol(b.dataset.email, b.dataset.rol)));
+    } catch (err) { $("usrLista").innerHTML = ""; msg("usrMsg", err.message); }
+  }
+
+  async function cambiarRol(email, tipo) {
+    try {
+      const u = await api("/usuarios/rol", { method: "PATCH", json: { email, tipo_usuario: tipo } });
+      msg("usrMsg", `${u.nombre} ahora es ${ROLES[u.tipo_usuario].toLowerCase()}.`, "ok");
+      loadUsuarios();
+    } catch (err) { msg("usrMsg", err.message); }
+  }
+
+  $("rolForm").addEventListener("submit", (e) => {
+    e.preventDefault(); const f = e.currentTarget; if (!f.reportValidity()) return;
+    withBusy(f.querySelector("[type=submit]"), async () => {
+      await cambiarRol($("rolEmail").value.trim(), $("rolTipo").value);
+      if ($("usrMsg").querySelector(".ok")) f.reset();
+    });
+  });
+
+  let buscarTimer;
+  $("usrBuscar").addEventListener("input", () => { clearTimeout(buscarTimer); buscarTimer = setTimeout(loadUsuarios, 300); });
 
   // ================= Catálogo de deportes (admin) =================
   async function loadDeportes() {
