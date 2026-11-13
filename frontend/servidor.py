@@ -59,9 +59,26 @@ class Handler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--api", default="http://127.0.0.1:8000")
+
+    # Dirección del backend. Se puede configurar desde Docker.
+    p.add_argument(
+        "--api",
+        default=os.getenv("API_URL", "http://127.0.0.1:8000")
+    )
+
+    # Puerto donde se ejecuta el frontend.
     p.add_argument("--puerto", type=int, default=5500)
+
+    # Dirección en la que escucha el servidor.
+    p.add_argument("--host", default="127.0.0.1")
+
     a = p.parse_args()
+
     Handler.api = a.api.rstrip("/")
-    print(f"Frontend en http://127.0.0.1:{a.puerto}  →  API en {Handler.api}")
-    ThreadingHTTPServer(("127.0.0.1", a.puerto), Handler).serve_forever()
+
+    print(
+        f"Frontend en http://{a.host}:{a.puerto}"
+        f" → API en {Handler.api}"
+    )
+
+    ThreadingHTTPServer((a.host, a.puerto), Handler).serve_forever()

@@ -3,22 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Canchas · Reservá y jugá</title>
+<title>ACTIVA · Deporte & Bienestar</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
   :root {
-    --bg: #f3f1ea; --surface: #ffffff; --ink: #10201a; --ink-2: #2b3a33; --muted: #66746c; --line: #e2ddd0;
-    --green: #146c43; --green-2: #0d4f30; --green-soft: #e1f2e8; --lime: #c8f04a;
+    --bg: #f4f1e9; --surface: #ffffff; --ink: #202321; --ink-2: #33453c; --muted: #69736d; --line: #e4e5dc;
+    --green: #0b3027; --green-2: #08261f; --green-soft: #e5eee8; --lime: #c1e34c;
     --error: #b3261e; --error-soft: #fdecea; --warn: #7a5300; --warn-soft: #fff3d6; --info: #1d4f8c; --info-soft: #e7eff9;
     --chalk: rgba(255,255,255,.22); --radius: 18px; --shadow: 0 1px 2px rgba(16,32,26,.06), 0 8px 24px rgba(16,32,26,.06);
   }
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; }
   body { margin: 0; font: 15px/1.5 Inter, system-ui, sans-serif; color: var(--ink); background: var(--bg); }
-  h1, h2, h3, .brand, .num { font-family: Archivo, Inter, sans-serif; }
+  h1, h2, h3, .brand, .num { font-family: Montserrat, Inter, sans-serif; }
   h1, h2, h3 { letter-spacing: -.01em; }
   [hidden] { display: none !important; }
   button { font: inherit; }
@@ -42,7 +42,7 @@
   .btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
   .btn.full { width: 100%; }
   .btn.lime { background: var(--lime); color: var(--ink); }
-  .btn.lime:hover { background: #b8e23a; }
+  .btn.lime:hover { background: #b3d63e; }
   .btn.ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
   .btn.ghost:hover { background: #ebe7dc; }
   .btn.danger { background: var(--error); }
@@ -84,7 +84,7 @@
   .hero p { margin: 0; font-size: 17px; opacity: .9; max-width: 440px; }
   .status { display: inline-flex; align-items: center; gap: 10px; font-size: 13px; background: rgba(0,0,0,.22); padding: 8px 14px; border-radius: 999px; align-self: flex-start; }
   .dot { width: 9px; height: 9px; border-radius: 50%; background: #c9c9c9; }
-  .dot.ok { background: var(--lime); box-shadow: 0 0 0 4px rgba(200,240,74,.25); }
+  .dot.ok { background: var(--lime); box-shadow: 0 0 0 4px rgba(193,227,76,.25); }
   .dot.fail { background: #ff8a80; }
   .auth main { padding: 40px clamp(16px, 5vw, 64px); display: flex; align-items: center; }
   .auth .card { width: 100%; max-width: 420px; margin: 0 auto; }
@@ -107,15 +107,15 @@
   nav button:hover { color: #fff; }
   nav button[aria-current="true"] { background: rgba(255,255,255,.12); color: #fff; }
   .user { display: flex; align-items: center; gap: 10px; font-size: 13px; }
-  .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--lime); color: var(--ink); display: grid; place-items: center; font: 900 15px Archivo, sans-serif; flex: none; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--lime); color: var(--ink); display: grid; place-items: center; font: 900 15px Montserrat, sans-serif; flex: none; }
   .who { line-height: 1.2; } .who small { opacity: .65; }
-  .pts { background: rgba(200,240,74,.15); color: var(--lime); border-radius: 999px; padding: 4px 10px; font-weight: 700; font-size: 12px; white-space: nowrap; }
+  .pts { background: rgba(193,227,76,.15); color: var(--lime); border-radius: 999px; padding: 4px 10px; font-weight: 700; font-size: 12px; white-space: nowrap; }
   .user button { background: rgba(255,255,255,.1); color: #fff; border: 0; border-radius: 10px; padding: 8px 11px; font-weight: 600; font-size: 12px; cursor: pointer; }
   .campana { position: relative; }
   .user #notifBtn { position: relative; font-size: 16px; line-height: 1; padding: 8px 10px; }
   .badge { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--lime); color: var(--ink); font: 800 11px/18px Inter, sans-serif; text-align: center; }
   .notif-panel { position: absolute; right: -8px; top: calc(100% + 12px); width: 360px; background: var(--surface); color: var(--ink); border-radius: 16px; box-shadow: 0 18px 50px rgba(0,0,0,.28); overflow: hidden; z-index: 1100; }
-  .notif-panel h4 { margin: 0; padding: 14px 16px; border-bottom: 1px solid var(--line); font: 800 15px Archivo, sans-serif; }
+  .notif-panel h4 { margin: 0; padding: 14px 16px; border-bottom: 1px solid var(--line); font: 800 15px Montserrat, sans-serif; }
   .notif-list { max-height: 400px; overflow-y: auto; }
   .notif { padding: 12px 16px 12px 28px; border-bottom: 1px solid var(--line); font-size: 13.5px; line-height: 1.45; position: relative; }
   .notif:last-child { border-bottom: 0; }
@@ -189,7 +189,7 @@
   .dist { font-size: 12.5px; font-weight: 700; color: var(--info); }
   .go { font-size: 13px; font-weight: 700; color: var(--green); }
   .empty { text-align: center; padding: 44px 18px; color: var(--muted); border: 1.5px dashed #d4cdbb; border-radius: var(--radius); background: rgba(255,255,255,.4); }
-  .empty b { display: block; font: 800 18px Archivo, sans-serif; color: var(--ink); margin-bottom: 4px; }
+  .empty b { display: block; font: 800 18px Montserrat, sans-serif; color: var(--ink); margin-bottom: 4px; }
 
   /* ---------- Ficha de cancha ---------- */
   .ficha { border-radius: 24px; overflow: hidden; background: var(--c, var(--green)); color: #fff; position: relative; padding: 34px 32px 28px; margin-bottom: 22px; }
@@ -207,13 +207,13 @@
   .panel + .panel { margin-top: 16px; }
   .sticky { position: sticky; top: 84px; }
   .slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
-  .slot { border: 1.5px solid var(--line); background: var(--surface); border-radius: 12px; padding: 11px 6px; font: 800 17px Archivo, sans-serif; color: var(--ink); cursor: pointer; text-align: center; transition: all .12s; }
+  .slot { border: 1.5px solid var(--line); background: var(--surface); border-radius: 12px; padding: 11px 6px; font: 800 17px Montserrat, sans-serif; color: var(--ink); cursor: pointer; text-align: center; transition: all .12s; }
   .slot small { display: block; font: 600 11.5px Inter, sans-serif; color: var(--muted); margin-top: 2px; }
   .slot:hover { border-color: var(--green); }
   .slot[aria-pressed="true"] { border-color: var(--green); background: var(--green); color: #fff; }
   .slot[aria-pressed="true"] small { color: rgba(255,255,255,.8); }
   .numturno { display: flex; gap: 10px; }
-  .numturno input { font: 800 20px Archivo, sans-serif; text-align: center; max-width: 140px; }
+  .numturno input { font: 800 20px Montserrat, sans-serif; text-align: center; max-width: 140px; }
   .lines { list-style: none; margin: 0 0 14px; padding: 12px 14px; background: #f6f4ee; border-radius: 12px; font-size: 13.5px; }
   .lines li { padding: 3px 0; display: flex; justify-content: space-between; gap: 10px; }
   .lines li.desc { color: var(--green); font-weight: 600; }
@@ -222,7 +222,7 @@
   .kv div:first-child { border-top: 0; }
   .kv dt { color: var(--muted); } .kv dd { margin: 0; font-weight: 700; text-align: right; }
   .kv .total { padding: 12px 0; }
-  .kv .total dt { color: var(--ink); font-weight: 700; } .kv .total dd { font: 900 24px Archivo, sans-serif; color: var(--green); }
+  .kv .total dt { color: var(--ink); font-weight: 700; } .kv .total dd { font: 900 24px Montserrat, sans-serif; color: var(--green); }
   .placeholder { text-align: center; color: var(--muted); padding: 28px 10px; }
   .placeholder span { font-size: 34px; display: block; margin-bottom: 6px; }
 
@@ -239,7 +239,7 @@
   .reloj svg { width: 54px; height: 54px; transform: rotate(-90deg); }
   .reloj circle { fill: none; stroke-width: 5; }
   .reloj .bgc { stroke: rgba(255,255,255,.15); } .reloj .fg { stroke: var(--lime); stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
-  .reloj b { font: 900 26px Archivo, sans-serif; font-variant-numeric: tabular-nums; display: block; line-height: 1; }
+  .reloj b { font: 900 26px Montserrat, sans-serif; font-variant-numeric: tabular-nums; display: block; line-height: 1; }
   .reloj small { opacity: .7; font-size: 12px; }
   .reloj.expired .fg { stroke: #ff8a80; }
   .medios { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 8px; }
@@ -255,7 +255,7 @@
   .res { display: grid; grid-template-columns: 82px 1fr auto; gap: 16px; align-items: center; background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
   .res + .res { margin-top: 10px; }
   .fecha { background: var(--ink); color: #fff; border-radius: 14px; text-align: center; padding: 10px 4px; line-height: 1.1; }
-  .fecha b { display: block; font: 900 24px Archivo, sans-serif; }
+  .fecha b { display: block; font: 900 24px Montserrat, sans-serif; }
   .fecha small { text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: .06em; opacity: .75; }
   .fecha.sin { background: #eeebe2; color: var(--muted); }
   .res h3 { margin: 0 0 4px; font-size: 17px; font-weight: 800; }
@@ -276,7 +276,7 @@
   .logros { display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 12px; margin-top: 16px; }
   .logro { border: 1.5px solid var(--line); border-radius: 14px; padding: 16px 12px; text-align: center; background: var(--bg); position: relative; }
   .logro .em { font-size: 34px; line-height: 1; display: block; margin-bottom: 8px; }
-  .logro b { display: block; font: 800 15px Archivo, sans-serif; }
+  .logro b { display: block; font: 800 15px Montserrat, sans-serif; }
   .logro p { margin: 4px 0 10px; font-size: 12.5px; color: var(--muted); line-height: 1.35; }
   .logro .lpts { font: 800 12px Inter, sans-serif; color: var(--green); }
   .logro.ganado { background: var(--green-soft); border-color: var(--green); }
@@ -287,7 +287,7 @@
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 18px; }
   .stat { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius); padding: 16px 18px; }
   .stat span { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px; }
-  .stat b { font: 900 28px Archivo, sans-serif; }
+  .stat b { font: 900 28px Montserrat, sans-serif; }
   .stat.hl { background: var(--ink); border-color: var(--ink); color: #fff; }
   .stat.hl span { color: rgba(255,255,255,.65); } .stat.hl b { color: var(--lime); }
   .list { list-style: none; margin: 0; padding: 0; }
@@ -331,7 +331,7 @@
   .perfil .avatar { width: 76px; height: 76px; font-size: 32px; }
   .perfil h2 { margin: 0; font-size: 28px; font-weight: 900; }
   .puntos { background: var(--ink); color: #fff; border-radius: var(--radius); padding: 22px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-  .puntos #pfPuntos { font: 900 44px Archivo, sans-serif; color: var(--lime); line-height: 1; }
+  .puntos #pfPuntos { font: 900 44px Montserrat, sans-serif; color: var(--lime); line-height: 1; }
   .barra { height: 8px; background: rgba(255,255,255,.12); border-radius: 99px; overflow: hidden; margin-top: 10px; width: 220px; max-width: 100%; }
   .barra i { display: block; height: 100%; background: var(--lime); border-radius: 99px; }
 
@@ -341,7 +341,7 @@
   .pin span { transform: rotate(45deg); font-size: 15px; }
   .leaflet-popup-content-wrapper { border-radius: 14px; }
   .leaflet-popup-content { font: 13px Inter, sans-serif; margin: 12px 14px; }
-  .leaflet-popup-content b { font: 800 15px Archivo, sans-serif; }
+  .leaflet-popup-content b { font: 800 15px Montserrat, sans-serif; }
   .leaflet-popup-content button { margin-top: 8px; }
 
   @media (max-width: 900px) {
@@ -368,58 +368,111 @@
     .welcome { padding: 22px; }
     .ficha { padding: 26px 22px 22px; }
   }
+
+  /* ===== ACTIVA · Identidad visual (sin modificar funcionalidades) ===== */
+  :root { --radius: 20px; --shadow: 0 8px 30px rgba(11,48,39,.07); }
+  body { letter-spacing: -.008em; }
+  .brand { font-family: Montserrat, sans-serif; font-size: 23px; font-weight: 900; letter-spacing: -.055em; gap: 11px; line-height: 1; }
+  .brand span { display: flex; flex-direction: column; gap: 5px; }
+  .brand small { font: 700 8px/1 Inter,sans-serif; letter-spacing: .23em; opacity: .75; }
+  .brand i.brand-mark { width: 40px; height: 40px; border-radius: 12px; background: var(--lime); color: var(--green); font: italic 900 30px/1 Montserrat,sans-serif; display: grid; place-items: center; transform: skew(-7deg); box-shadow: 0 5px 18px rgba(0,0,0,.12); }
+  .hero { background: radial-gradient(ellipse at 80% 15%, #235746 0, transparent 48%), linear-gradient(145deg, #09271f 0%, #0b3027 64%, #153f33 100%); padding: 46px clamp(28px,5vw,76px); }
+  .hero::before { inset: auto -14% -32% auto; width: 70%; height: 75%; border: 1px solid rgba(193,227,76,.17); border-radius: 50%; transform: rotate(-23deg); background: none; }
+  .hero::after { width: 65%; height: 90%; left: 75%; top: 46%; border-color: rgba(193,227,76,.13); border-radius: 45%; transform: translate(-50%,-50%) rotate(-25deg); }
+  .hero h1 { font-size: clamp(40px,5vw,72px); line-height: 1.05; letter-spacing: -.055em; max-width: 660px; }
+  .hero p { line-height: 1.8; max-width: 440px; }
+  .auth main { background: #f4f1e9; }
+  .auth .card { max-width: 440px; }
+  .auth h2 { font-size: 32px; letter-spacing: -.04em; }
+  .tabs,.subtabs { background: #e9e8df; }
+  .btn { border-radius: 12px; }
+  .auth form .btn.full { background: var(--green); color: white; }
+  .auth form .btn.full:hover { background: #175342; }
+  .welcome { background: radial-gradient(circle at 94% 12%,#235947 0,transparent 40%),var(--green); border-radius: 24px; padding: 34px; }
+  .welcome::after { border-color: rgba(193,227,76,.25); width: 270px; height: 270px; }
+  .welcome h2 { letter-spacing: -.045em; }
+  header { background: #0b3027; }
+  .panel,.cancha,.stat,.res,.ticket { border-color: #e3e6df; box-shadow: 0 3px 15px rgba(11,48,39,.025); }
+  .cancha:hover { border-color: #abc8b4; box-shadow: 0 12px 28px rgba(11,48,39,.10); }
+  .tag { background: #e5eee8; }
+  .chip[aria-pressed="true"] { background: var(--green); border-color: var(--green); }
+  .ficha { background: var(--c,var(--green)); }
+  .status { backdrop-filter: blur(8px); background: rgba(0,0,0,.19); }
+  @media(max-width:760px) { .hero { min-height: 280px; padding: 28px 24px; } .hero h1 { font-size: 38px; } .brand small { font-size: 7px; } }
+
+
+  /* ===== Pantalla de acceso ACTIVA · diseño centrado ===== */
+  .auth { min-height: 100vh; display: block; background: radial-gradient(ellipse at 18% 10%, #1b5140 0, transparent 38%), radial-gradient(ellipse at 90% 82%, #174637 0, transparent 42%), #08291f; color: #fff; }
+  .auth-shell { min-height: 100vh; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 95px 20px 64px; overflow: hidden; isolation: isolate; }
+  .auth-shell::before, .auth-shell::after { content: ''; position: absolute; z-index: -1; pointer-events: none; border: 1px solid rgba(193,227,76,.13); border-radius: 50%; }
+  .auth-shell::before { width: 720px; height: 720px; top: -420px; right: -210px; }
+  .auth-shell::after { width: 590px; height: 590px; bottom: -410px; left: -190px; }
+  .auth-topbrand { position: absolute; top: 34px; left: max(32px, calc((100vw - 1140px)/2)); color: #fff; }
+  .auth-intro { text-align: center; max-width: 620px; }
+  .auth-eyebrow { color: var(--lime); font: 800 11px Inter,sans-serif; letter-spacing: .19em; margin-bottom: 12px; }
+  .auth-intro h1 { font-size: clamp(32px,4.5vw,53px); line-height: 1.08; font-weight: 900; letter-spacing: -.055em; margin: 0 0 12px; }
+  .auth-intro h1 em { font-style: normal; color: var(--lime); }
+  .auth-intro p { color: rgba(255,255,255,.78); font-size: 15px; margin: 0; }
+  .auth main { display: block; width: 100%; padding: 0; background: transparent; }
+  .auth .card { max-width: 440px; width: 100%; margin: 0 auto; background: #f4f1e9; color: var(--ink); padding: 30px; border-radius: 24px; box-shadow: 0 24px 75px rgba(0,0,0,.25); }
+  .auth .tabs { margin-bottom: 24px; }
+  .auth .settings { margin-top: 20px; }
+  .auth-footer { position: absolute; bottom: 22px; left: max(24px,calc((100vw - 1140px)/2)); right: max(24px,calc((100vw - 1140px)/2)); display: flex; align-items: center; justify-content: space-between; gap: 15px; color: rgba(255,255,255,.48); font-size: 10px; letter-spacing: .06em; }
+  .auth-footer .status { color: rgba(255,255,255,.9); letter-spacing: normal; font-size: 12px; }
+  @media(max-width:760px) { .auth-shell { padding: 105px 16px 95px; gap: 18px; } .auth-topbrand { top: 25px; left: 24px; } .auth .card { padding: 23px 20px; } .auth-intro p { font-size: 13px; } .auth-footer { bottom: 16px; left: 16px; right: 16px; } .auth-footer > span:last-child { display: none; } }
+
 </style>
 </head>
 <body>
 
 <!-- ================= ACCESO ================= -->
 <div class="auth" id="authView">
-  <section class="hero">
-    <div class="brand"><i>⚽</i> CANCHAS</div>
-    <div>
-      <h1>Armá el partido.<br><em>La cancha la ponemos nosotros.</em></h1>
-      <p>Buscá canchas cerca tuyo, reservá en un toque pagando solo la seña, y el resto lo abonás cuando vas a jugar.</p>
+  <div class="auth-shell">
+    <div class="auth-topbrand brand"><i class="brand-mark">A</i><span>Activa<small>DEPORTE &amp; BIENESTAR</small></span></div>
+    <div class="auth-intro">
+      <div class="auth-eyebrow">TU ESPACIO PARA MOVERTE</div>
+      <h1>Tu próxima actividad<br><em>empieza acá.</em></h1>
+      <p>Reservá canchas, clases y experiencias deportivas en un solo lugar.</p>
     </div>
-    <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">Conectando con la API…</span></div>
-  </section>
-  <main>
-    <div class="card">
-      <div class="tabs" role="tablist">
-        <button class="tab" id="tabLogin" aria-selected="true">Iniciar sesión</button>
-        <button class="tab" id="tabRegister" aria-selected="false">Crear cuenta</button>
+    <main>
+      <div class="card">
+        <div class="tabs" role="tablist">
+          <button class="tab" id="tabLogin" aria-selected="true">Iniciar sesión</button>
+          <button class="tab" id="tabRegister" aria-selected="false">Crear cuenta</button>
+        </div>
+        <div id="authMsg"></div>
+        <form id="loginForm" novalidate>
+          <h2>¡Hola de nuevo!</h2>
+          <p class="sub">Ingresá con tu email y contraseña.</p>
+          <div class="field"><label for="loginEmail">Email</label><input id="loginEmail" type="email" autocomplete="username" placeholder="vos@email.com" required></div>
+          <div class="field"><label for="loginPass">Contraseña</label><input id="loginPass" type="password" autocomplete="current-password" required></div>
+          <button class="btn full" type="submit">Ingresar</button>
+        </form>
+        <form id="registerForm" novalidate hidden>
+          <h2>Sumate</h2>
+          <p class="sub">Creá tu cuenta en menos de un minuto.</p>
+          <div class="field"><label for="regNombre">Nombre</label><input id="regNombre" autocomplete="name" maxlength="100" required></div>
+          <div class="field"><label for="regEmail">Email</label><input id="regEmail" type="email" autocomplete="email" maxlength="150" placeholder="vos@email.com" required></div>
+          <div class="field"><label for="regPass">Contraseña</label><input id="regPass" type="password" autocomplete="new-password" minlength="6" required><p class="hint">Mínimo 6 caracteres.</p></div>
+          <button class="btn full" type="submit">Crear cuenta</button>
+        </form>
+        <details class="settings">
+          <summary>Configuración de la API</summary>
+          <div class="r"><input id="apiUrl" aria-label="URL de la API"><button class="btn ghost small" id="saveApi">Guardar</button></div>
+        </details>
       </div>
-      <div id="authMsg"></div>
-      <form id="loginForm" novalidate>
-        <h2>¡Hola de nuevo!</h2>
-        <p class="sub">Ingresá con tu email y contraseña.</p>
-        <div class="field"><label for="loginEmail">Email</label><input id="loginEmail" type="email" autocomplete="username" placeholder="vos@email.com" required></div>
-        <div class="field"><label for="loginPass">Contraseña</label><input id="loginPass" type="password" autocomplete="current-password" required></div>
-        <button class="btn full" type="submit">Ingresar</button>
-      </form>
-      <form id="registerForm" novalidate hidden>
-        <h2>Sumate</h2>
-        <p class="sub">Creá tu cuenta en menos de un minuto.</p>
-        <div class="field"><label for="regNombre">Nombre</label><input id="regNombre" autocomplete="name" maxlength="100" required></div>
-        <div class="field"><label for="regEmail">Email</label><input id="regEmail" type="email" autocomplete="email" maxlength="150" placeholder="vos@email.com" required></div>
-        <div class="field"><label for="regPass">Contraseña</label><input id="regPass" type="password" autocomplete="new-password" minlength="6" required>
-          <p class="hint">Mínimo 6 caracteres.</p></div>
-        <button class="btn full" type="submit">Crear cuenta</button>
-      </form>
-      <details class="settings">
-        <summary>Configuración de la API</summary>
-        <div class="r"><input id="apiUrl" aria-label="URL de la API"><button class="btn ghost small" id="saveApi">Guardar</button></div>
-      </details>
-    </div>
-  </main>
+    </main>
+    <div class="auth-footer"><span class="status"><span class="dot" id="statusDot"></span><span id="statusText">Conectando con la API…</span></span><span>ACTIVA · DEPORTE &amp; BIENESTAR</span></div>
+  </div>
 </div>
 
 <!-- ================= APP ================= -->
 <div id="appView" hidden>
   <header>
     <div class="bar">
-      <div class="brand" data-goto="canchas"><i>⚽</i> CANCHAS</div>
+      <div class="brand" data-goto="canchas"><i class="brand-mark">A</i><span>Activa<small>DEPORTE &amp; BIENESTAR</small></span></div>
       <nav id="nav">
-        <button data-view="canchas">Canchas</button>
+        <button data-view="canchas">Explorar</button>
         <button data-view="reservas">Mis reservas</button>
         <button data-view="complejo" data-role="owner">Mi complejo</button>
         <button data-view="usuarios" data-role="admin">Usuarios</button>
@@ -449,9 +502,9 @@
     <section data-section="canchas">
       <div class="welcome">
         <div>
-          <h2>Hola, <span id="hola"></span> 👋<br><em>¿Dónde jugamos hoy?</em></h2>
-          <p id="canchasCount">Cargando canchas…</p>
-          <p class="prop-linea soloCliente" hidden>¿Tenés un complejo? Escribinos a <b>propietarios@canchasapp.com.ar</b> y publicá tus canchas.</p>
+          <h2>Hola, <span id="hola"></span> 👋<br><em>¿Qué hacemos hoy?</em></h2>
+          <p id="canchasCount">Cargando actividades…</p>
+          <p class="prop-linea soloCliente" hidden>¿Ofrecés espacios o clases? Escribinos a <b>propietarios@canchasapp.com.ar</b> y publicá tus actividades.</p>
         </div>
         <button class="btn lime" id="cercaMio">📍 Ver las más cercanas</button>
       </div>
@@ -465,7 +518,7 @@
 
     <!-- ===== Ficha de cancha ===== -->
     <section data-section="cancha" hidden>
-      <button class="linkbtn back" data-goto="canchas">← Volver a canchas</button>
+      <button class="linkbtn back" data-goto="canchas">← Volver a explorar</button>
       <div class="ficha" id="ficha">
         <div class="emoji" id="fEmoji">⚽</div>
         <h2 id="fNombre"></h2>
@@ -581,13 +634,13 @@
 
     <!-- ===== Mi complejo ===== -->
     <section data-section="complejo" hidden>
-      <div class="head"><div><h2>Mi complejo</h2><p>Tus cobros, tus canchas y los partidos jugados.</p></div></div>
+      <div class="head"><div><h2>Mi complejo</h2><p>Gestioná tus espacios, actividades, turnos y cobros.</p></div></div>
       <div class="subtabs" id="subtabs">
         <button data-sub="cobros" aria-current="true">💰 Cobros</button>
         <button data-sub="turnos" data-turnos-api>🗓️ Turnos</button>
         <button data-sub="finalizar">✅ Marcar como jugada</button>
         <button data-sub="espacios">🏟️ Mis espacios</button>
-        <button data-sub="publicar">➕ Publicar cancha</button>
+        <button data-sub="publicar">➕ Publicar espacio</button>
       </div>
       <div id="complejoMsg"></div>
 
@@ -678,7 +731,7 @@
             <button class="btn full" type="submit">Publicar cancha</button>
           </form>
           <div>
-            <div class="panel"><h3>Mis canchas</h3><ul class="list" id="misCanchas"></ul></div>
+            <div class="panel"><h3>Mis espacios</h3><ul class="list" id="misCanchas"></ul></div>
             <p class="hint" style="margin:10px 4px">¿Falta un deporte en la lista? Pedíselo al administrador.</p>
           </div>
         </div>
@@ -687,7 +740,7 @@
 
     <!-- ===== Deportes (admin) ===== -->
     <section data-section="deportes" hidden>
-      <div class="head"><div><h2>Catálogo de deportes</h2><p>Los propietarios solo pueden publicar canchas de estos deportes.</p></div></div>
+      <div class="head"><div><h2>Catálogo de deportes</h2><p>Actividades disponibles para publicar espacios y clases.</p></div></div>
       <div id="depMsg"></div>
       <form class="panel" id="depForm" novalidate style="margin-bottom:18px">
         <h3>Agregar deporte</h3>
@@ -702,7 +755,7 @@
 
     <!-- ===== Usuarios (admin) ===== -->
     <section data-section="usuarios" hidden>
-      <div class="head"><div><h2>Usuarios</h2><p>Habilitá a un usuario como propietario para que pueda publicar canchas.</p></div></div>
+      <div class="head"><div><h2>Usuarios</h2><p>Habilitá a un usuario como propietario para publicar espacios y actividades.</p></div></div>
       <div id="usrMsg"></div>
       <form class="panel" id="rolForm" novalidate style="margin-bottom:18px">
         <h3>Asignar rol</h3>
@@ -751,7 +804,7 @@
       <div class="prop-nota soloCliente" hidden>
         <span class="ico" aria-hidden="true">🏟️</span>
         <div>
-          <h3>¿Querés publicar tus canchas?</h3>
+          <h3>¿Querés ofrecer espacios o clases?</h3>
           <p>Tu cuenta es de cliente. Para ser propietario, mandá un mail a esta dirección desde <b id="pnEmail"></b> (el email con el que te registraste), contando el nombre de tu complejo. Te habilitamos y vas a ver la pestaña Mi complejo.</p>
           <div class="mail"><code id="pnMail">propietarios@canchasapp.com.ar</code><button class="btn ghost small" type="button" id="pnCopiar">Copiar email</button></div>
         </div>
@@ -1160,7 +1213,7 @@
     if (state.espacios.length && !state.espacios[0].ubicacion)
       msg("canchasMsg", "El backend no está devolviendo la ubicación de las canchas, así que no aparecen en el mapa. Agregá `ubicacion: UbicacionRespuesta` en EspacioDeportivoRespuesta (schemas.py).", "warn");
     const n = lista.length;
-    $("canchasCount").textContent = n ? `${n} ${n === 1 ? "cancha disponible" : "canchas disponibles"}${state.yo ? " · ordenadas por cercanía" : ""}` : "Todavía no hay canchas publicadas.";
+    $("canchasCount").textContent = n ? `${n} ${n === 1 ? "espacio disponible" : "espacios disponibles"}${state.yo ? " · ordenadas por cercanía" : ""}` : "Todavía no hay espacios publicados.";
     $("canchasGrid").innerHTML = n ? lista.map(e => {
       const s = estilo(e.actividad_id);
       return `<button class="cancha" data-id="${e.id}">
@@ -1172,7 +1225,7 @@
           ${e.ubicacion ? `<p class="meta">📍 ${esc(e.ubicacion.direccion)}</p>` : ""}
           <div class="foot"><span class="dist">${state.yo && isFinite(e.dist) ? fKm(e.dist) : ""}</span><span class="go">Ver turnos →</span></div>
         </div></button>`;
-    }).join("") : `<div class="empty"><b>Todavía no hay canchas</b>${isOwner() ? "Publicá la primera desde Mi complejo." : "Volvé en un rato."}</div>`;
+    }).join("") : `<div class="empty"><b>Todavía no hay espacios disponibles</b>${isOwner() ? "Publicá la primera desde Mi complejo." : "Volvé en un rato."}</div>`;
     $("canchasGrid").querySelectorAll(".cancha").forEach(c => {
       c.onclick = () => abrirCancha(Number(c.dataset.id));
       c.onmouseenter = () => { const m = marcadores[Number(c.dataset.id)]; if (m) m.openPopup(); };
@@ -1371,7 +1424,7 @@
 
   function renderReservas(rs) {
     if (!rs.length) {
-      $("reservasList").innerHTML = `<div class="empty"><b>Todavía no reservaste nada</b><button class="linkbtn" data-goto="canchas">Buscá una cancha →</button></div>`;
+      $("reservasList").innerHTML = `<div class="empty"><b>Todavía no reservaste nada</b><button class="linkbtn" data-goto="canchas">Explorar actividades →</button></div>`;
       $("reservasList").querySelector("[data-goto]").onclick = () => show("canchas");
       return;
     }
@@ -1465,7 +1518,7 @@
         const fallidas = await subirFotos(esp.id, $("eFotos").files);
         f.reset(); $("eLat").value = ""; $("eLon").value = ""; $("ubiOk").hidden = true;
         if (pinPick) { pinPick.remove(); pinPick = null; }
-        msg("complejoMsg", `¡${esp.nombre} ya está publicada! Ya aparece en Canchas.` + (fallidas ? ` (${fallidas} foto(s) no se pudieron subir; probá de nuevo desde Mis espacios).` : ""), fallidas ? "warn" : "ok");
+        msg("complejoMsg", `¡${esp.nombre} ya está publicada! Ya aparece en Explorar.` + (fallidas ? ` (${fallidas} foto(s) no se pudieron subir; probá de nuevo desde Mis espacios).` : ""), fallidas ? "warn" : "ok");
         await cargarDatos(); renderSelects();
       } catch (err) { msg("complejoMsg", err.message); }
     });

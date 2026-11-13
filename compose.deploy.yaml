@@ -15,7 +15,7 @@ services:
       retries: 10
 
   api:
-    image: morahanna/api-canchas:latest
+    image: agusnobre/api-canchas:latest
     restart: unless-stopped
     ports:
       - "${API_PORT:-8000}:8000"
@@ -30,5 +30,18 @@ services:
       DB_NAME: ${DB_NAME:-canchas_db}
       SECRET_KEY: ${SECRET_KEY:?Defini SECRET_KEY}
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5500:5500"
+    depends_on:
+      - api
+    environment:
+      API_URL: http://api:8000
+
 volumes:
   pgdata_deploy:
+
