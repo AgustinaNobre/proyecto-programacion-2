@@ -1,75 +1,141 @@
-# API de Reserva de Canchas
 
-API desarrollada con FastAPI y PostgreSQL para gestionar espacios deportivos, turnos, reservas, pagos y liquidaciones.
+# ACTIVA — Plataforma de reservas deportivas
 
-## Tecnologías
+Proyecto desarrollado para la materia Programación 2.
+
+ACTIVA es una plataforma que permite buscar y reservar canchas y clases deportivas, facilitando la gestión de espacios, actividades, turnos y reservas tanto para usuarios como para propietarios.
+
+## Funcionalidades principales
+
+- Registro e inicio de sesión de usuarios.
+- Gestión de usuarios y propietarios.
+- Búsqueda de espacios y actividades deportivas.
+- Reserva de canchas y clases.
+- Gestión de turnos y cupos.
+- Gestión de pagos y liquidaciones.
+- Sistema de notificaciones mediante el patrón Observer.
+- Interfaz gráfica para interactuar con la aplicación.
+
+## Tecnologías utilizadas
+
+### Backend
 
 - Python
 - FastAPI
-- PostgreSQL
 - SQLAlchemy
-- Docker y Docker Compose
+- PostgreSQL
+
+### Frontend
+
+- HTML
+- CSS
+- JavaScript
+
+### Infraestructura y testing
+
+- Docker
+- Docker Compose
+- Docker Hub
+- GitHub Actions
+- Pytest
+
+## Arquitectura de la aplicación
+
+La aplicación se organiza en tres componentes principales:
+
+- Frontend: interfaz gráfica con la que interactúan los usuarios.
+- Backend: API REST desarrollada con FastAPI, encargada de la lógica de negocio.
+- Base de datos: PostgreSQL, encargada de almacenar la información del sistema.
+
+Los componentes se ejecutan mediante contenedores Docker.
 
 ## Despliegue con Docker
 
 La imagen de la API está publicada en Docker Hub:
 
-https://hub.docker.com/r/morahanna/api-canchas
+https://hub.docker.com/r/agusnobre/api-canchas
 
 ### Requisitos
 
+- Git.
 - Docker Desktop instalado y funcionando.
 - Docker Compose disponible.
 
-### 1. Configurar las variables de entorno
-
-Crear un archivo `.env` en la raíz del proyecto. Para generar automáticamente las claves necesarias, ejecutar en la terminal:
+### 1. Clonar el repositorio
 
 ```bash
-DB_PASSWORD=$(openssl rand -hex 24)
-SECRET_KEY=$(openssl rand -hex 32)
+git clone https://github.com/AgustinaNobre/proyecto-programacion-2.git
+cd proyecto-programacion-2
+```
 
-cat > .env <<EOF
+### 2. Configurar las variables de entorno
+
+Crear un archivo `.env` en la raíz del proyecto con las siguientes variables:
+
+```env
 DB_USER=canchas_user
-DB_PASSWORD=$DB_PASSWORD
+DB_PASSWORD=reemplazar_por_contrasena_segura
 DB_NAME=canchas_db
-SECRET_KEY=$SECRET_KEY
+SECRET_KEY=reemplazar_por_clave_secreta_segura
 API_PORT=8000
-EOF
 ```
 
-Este comando genera una contraseña segura para PostgreSQL y una clave secreta para la API.
+Reemplazar los valores de DB_PASSWORD y SECRET_KEY por claves seguras.
 
-**Importante:** el archivo `.env` contiene información sensible. No debe compartirse ni subirse a GitHub.
+IMPORTANTE: el archivo `.env` contiene información sensible y no debe compartirse ni subirse a GitHub.
 
-### 2. Levantar la aplicación
+### 3. Levantar la aplicación
 
-Desde la carpeta del proyecto, ejecutar:
+Desde la carpeta raíz del proyecto, ejecutar:
 
 ```bash
-docker compose -p api-canchas --env-file .env -f compose.deploy.yaml up -d
+docker compose -p api-canchas --env-file .env -f compose.deploy.yaml up -d --build
 ```
 
-Docker Compose descargará la imagen de Docker Hub si no está disponible localmente, iniciará PostgreSQL y luego levantará la API.
+Docker Compose se encarga de:
 
-### 3. Acceder a la API
+- Iniciar la base de datos PostgreSQL.
+- Descargar la imagen de la API si no está disponible localmente.
+- Iniciar el backend.
+- Construir e iniciar el frontend.
 
-Una vez iniciados los contenedores, abrir:
+### 4. Acceder a la aplicación
 
-- Documentación interactiva (Swagger): http://localhost:8000/docs
+Una vez iniciados los contenedores:
+
+- Interfaz de ACTIVA: http://localhost:5500
+- Documentación interactiva Swagger: http://localhost:8000/docs
 - Esquema OpenAPI: http://localhost:8000/openapi.json
 
-### 4. Detener la aplicación
-
-Ejecutar:
+### 5. Detener la aplicación
 
 ```bash
 docker compose -p api-canchas --env-file .env -f compose.deploy.yaml down
 ```
 
-Los datos de PostgreSQL se conservan en un volumen de Docker. Detener los contenedores de esta manera no elimina la base de datos.
+Los datos de PostgreSQL se conservan en un volumen persistente de Docker.
+
+## Documentación de la API
+
+La API cuenta con documentación interactiva generada mediante Swagger, que permite consultar los endpoints, sus parámetros y respuestas, y realizar solicitudes directamente desde el navegador.
+
+## Testing
+
+El proyecto incluye pruebas automatizadas para verificar el funcionamiento de la API y la lógica de reservas.
+
+También cuenta con un workflow de GitHub Actions para la ejecución automatizada de pruebas.
 
 ## Imagen Docker
 
-- Usuario de Docker Hub: `morahanna`
-- Imagen: `morahanna/api-canchas:latest`
+- Usuario de Docker Hub: agusnobre
+- Imagen: agusnobre/api-canchas:latest
+
+## Repositorio
+
+https://github.com/AgustinaNobre/proyecto-programacion-2
+
+## Proyecto académico
+
+Materia: Programación 2
+
+Licenciatura en Ciencia de Datos
